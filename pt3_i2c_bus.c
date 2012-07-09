@@ -89,7 +89,7 @@ pt3_i2c_bus_stop(PT3_I2C_BUS *bus)
 }
 
 void
-pt3_i2c_bus_write(PT3_I2C_BUS *bus, __u8 *data, __u32 size)
+pt3_i2c_bus_write(PT3_I2C_BUS *bus, const __u8 *data, __u32 size)
 {
 	__u32 i, j;
 	__u8 byte;
@@ -102,6 +102,15 @@ pt3_i2c_bus_write(PT3_I2C_BUS *bus, __u8 *data, __u32 size)
 		}
 		add_instruction(bus, I_DATA_H_ACK0);
 	}
+}
+
+void
+pt3_i2c_bus_end(PT3_I2C_BUS *bus)
+{
+	add_instruction(bus, I_END);
+
+	if (bus->inst_count % 2)
+		add_instruction(bus, I_END);
 }
 
 /* FPGA_I2C */

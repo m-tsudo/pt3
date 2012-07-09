@@ -37,6 +37,7 @@ typedef struct pm_message {
 
 #include	"pt3_com.h"
 #include	"pt3_pci.h"
+#include	"pt3_i2c_bus.h"
 
 /* These identify the driver base version and may not be removed. */
 static char version[] __devinitdata =
@@ -93,6 +94,7 @@ typedef	struct	_pt3_device{
 	wait_queue_head_t	dma_wait_q ;// for poll on reading
 	PT3_VERSION		version;
 	PT3_SYSTEM		system;
+	PT3_I2C_BUS		*i2c_bus;
 } PT3_DEVICE;
 
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
@@ -263,11 +265,18 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		printk(KERN_ERR "Error ep4c_init\n");
 		goto out_err_fpga;
 	}
-
 	mutex_init(&dev_conf->lock);
+	dev_conf->i2c_bus = create_pt3_i2c_bus(dev_conf->regs);
+	if (dev_conf->i2c_bus == NULL) {
+		printk(KERN_ERR "PT3: cannot allocate i2c_bus.");
+		goto out_err_i2c_bus;
+	}
+	printk(KERN_DEBUG "Allocate PT3_I2C_BUS.");
 
 	// 初期化
 	init_waitqueue_head(&dev_conf->dma_wait_q);
+
+	// Tuner
 
 	minor = MINOR(dev_conf->dev) ;
 	dev_conf->base_minor = minor ;
@@ -283,6 +292,8 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	pci_set_drvdata(pdev, dev_conf);
 	return 0;
 
+out_err_i2c_bus:
+	free_pt3_i2c_bus(dev_conf->i2c_bus);
 out_err_fpga:
 	iounmap(dev_conf->regs);
 	release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
@@ -301,12 +312,16 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			kthread_stop(dev_conf->kthread);
 			dev_conf->kthread = NULL;
 		}
+
+		if (dev_conf->i2c_bus)
+			free_pt3_i2c_bus(dev_conf->i2c_bus);
 		
 		unregister_chrdev_region(dev_conf->dev, MAX_CHANNEL);
 		release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
 		iounmap(dev_conf->regs);
 		device[dev_conf->card_number] = NULL;
 		kfree(dev_conf);
+		printk(KERN_DEBUG "free PT3 DEVICE.");
 	}
 	pci_set_drvdata(pdev, NULL);
 }
