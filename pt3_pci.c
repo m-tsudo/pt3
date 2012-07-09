@@ -39,10 +39,6 @@ typedef struct pm_message {
 
 #include	"pt3_com.h"
 #include	"pt3_pci.h"
-#include	"pt3_tuner.h"
-#include	"pt3_i2c.h"
-#include	"pt3_tuner_data.h"
-#include	"pt3_ioctl.h"
 
 /* These identify the driver base version and may not be removed. */
 static char version[] __devinitdata =
@@ -99,7 +95,6 @@ typedef	struct	_pt3_device{
 	wait_queue_head_t	dma_wait_q ;// for poll on reading
 	PT3_VERSION		version;
 	PT3_SYSTEM		system;
-	PT3_I2C_CONTROL i2cctl;
 } PT3_DEVICE;
 
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
@@ -122,20 +117,20 @@ ep4c_init(PT3_DEVICE *dev_conf)
 		printk(KERN_ERR "PTn needs 3.\n");
 		return -1;
 	}
-	printk(KERN_DEBUG, "Check PTn is passed.");
+	printk(KERN_DEBUG "Check PTn is passed.\n");
 
 	if (dev_conf->version.fpga != 0x04) {
 		printk(KERN_ERR "this FPGA version not supported\n");
 		return -1;
 	}
-	printk(KERN_DEBUG, "Check FPGA version is passed.");
+	printk(KERN_DEBUG "Check FPGA version is passed.");
 
 	val = readl(dev_conf->regs + 0x0c);
 	dev_conf->system.can_transport_ts = ((val >> 5) & 0x01);
-	printk(KERN_DEBUG, "can_transport_ts = %d\n",
+	printk(KERN_DEBUG "can_transport_ts = %d\n",
 						dev_conf->system.can_transport_ts);
 	dev_conf->system.dma_descriptor_page_size = (val & 0x1F);
-	printk(KERN_DEBUG, "dma_descriptor_page_size = %d\n",
+	printk(KERN_DEBUG "dma_descriptor_page_size = %d\n",
 						dev_conf->system.dma_descriptor_page_size);
 
 	return 0;
@@ -148,10 +143,12 @@ static int pt3_open(struct inode *inode, struct file *file)
 
 static int pt3_release(struct inode *inode, struct file *file)
 {
+	return 0;
 }
 
 static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t * ppos)
 {
+	return 0;
 }
 
 static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
@@ -161,6 +158,7 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 
 static long pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
+	return 0;
 }
 
 static long pt3_compat_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
@@ -206,7 +204,6 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	u16			cmd ;
 	u32			class_revision ;
 	PT3_DEVICE	*dev_conf ;
-	int i;
 	struct resource *dummy;
 
 	rc = pci_enable_device(pdev);
@@ -225,7 +222,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 				(class_revision & 0xFF));
 		return -EIO;
 	}
-	printk(KERN_DEBUG, "Revision check passwd.");
+	printk(KERN_DEBUG "Revision check passwd.");
 
 	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
 	if (!(cmd & PCI_COMMAND_MASTER)) {
@@ -244,18 +241,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		printk(KERN_ERR "PT3:out of memory !");
 		return -ENOMEM ;
 	}
-	printk(KERN_DEBUG, "Allocate PT3_DEVICE.");
-
-	dev_conf->i2cctl.instructions =
-		kzalloc(sizeof(__u8) * PT3_I2C_INSTRUCTION_MAX / 2, GFP_KERNEL);
-	if (dev_conf->i2cctl.instructions == NULL) {
-		kfree(dev_conf);
-		printk(KERN_ERR "PT3:out of memory !");
-		return -ENOMEM ;
-	}
-	dev_conf->i2cctl.count = 0;
-	mutex_init(&dev_conf->i2cctl.lock);
-	printk(KERN_DEBUG, "Allocate and init PT3_I2C_CONTROL.");
+	printk(KERN_DEBUG "Allocate PT3_DEVICE.");
 
 	// PCIアドレスをマップする
 	dev_conf->mmio_start = pci_resource_start(pdev, 0);
@@ -265,14 +251,14 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		printk(KERN_ERR "PT3:cannot request iomem  (0x%llx).\n", (unsigned long long) dev_conf->mmio_start);
 		goto out_err_regbase;
 	}
-	printk(KERN_DEBUG, "request_mem_resion success.");
+	printk(KERN_DEBUG "request_mem_resion success.");
 
 	dev_conf->regs = ioremap(dev_conf->mmio_start, dev_conf->mmio_len);
 	if (!dev_conf->regs){
 		printk(KERN_ERR "pt3:Can't remap register area.\n");
 		goto out_err_regbase;
 	}
-	printk(KERN_DEBUG, "io_remap success.");
+	printk(KERN_DEBUG "io_remap success.");
 
 	// 初期化処理
 	if(ep4c_init(dev_conf)){
@@ -303,7 +289,6 @@ out_err_fpga:
 	iounmap(dev_conf->regs);
 	release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
 out_err_regbase:
-	kfree(dev_conf->i2cctl.instructions);
 	kfree(dev_conf);
 	return -EIO;
 }
@@ -311,10 +296,7 @@ out_err_regbase:
 static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 {
 
-	int		lp ;
-	__u32	val ;
 	PT3_DEVICE	*dev_conf = (PT3_DEVICE *)pci_get_drvdata(pdev);
-	int		i;
 
 	if(dev_conf){
 		if(dev_conf->kthread) {
@@ -322,11 +304,6 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			dev_conf->kthread = NULL;
 		}
 		
-		if (dev_conf->i2cctl.instructions) {
-			kfree(dev_conf->i2cctl.instructions);
-			dev_conf->i2cctl.instructions = NULL;
-		}
-
 		unregister_chrdev_region(dev_conf->dev, MAX_CHANNEL);
 		release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
 		iounmap(dev_conf->regs);
