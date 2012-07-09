@@ -87,7 +87,7 @@ qm_sleep(PT3_I2C_BUS *bus, __u32 ms)
 		schedule_timeout_interruptible(msecs_to_jiffies(ms));	
 }
 
-int
+static int
 qm_set_sleep_mode(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm)
 {
 	int status;
@@ -122,7 +122,7 @@ qm_set_sleep_mode(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm)
 	return status;
 }
 
-int
+static int
 qm_set_search_mode(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm)
 {
 	int status;
@@ -143,6 +143,14 @@ qm_set_search_mode(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm)
 	}
 
 	return status;
+}
+
+static __u8 qm_address[MAX_TUNER] = { 0x63, 0x60 };
+
+__u8
+pt3_qm_address(__u32 index)
+{
+	return qm_address[index];
 }
 
 void
@@ -219,4 +227,26 @@ pt3_qm_init(PT3_I2C_BUS * bus, PT3_TC *tc, PT3_QM *qm)
 	return status;
 }
 
+PT3_QM *
+create_pt3_qm()
+{
+	PT3_QM *qm;
 
+	qm = NULL;
+
+	qm = vzalloc(sizeof(PT3_QM));
+	if (qm == NULL)
+		goto fail;
+
+	return qm;
+fail:
+	if (qm != NULL)
+		vfree(qm);
+	return NULL;
+}
+
+void
+free_pt3_qm(PT3_QM *qm)
+{
+	vfree(qm);
+}

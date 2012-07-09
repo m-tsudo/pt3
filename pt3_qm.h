@@ -19,9 +19,12 @@ typedef struct __PT3_QM {
 	__u8 reg[0x20];
 } PT3_QM;
 
+__u8 pt3_qm_address(__u32 index);
 void pt3_qm_get_channel_freq(__u32 channel, int *bs, __u32 *number, __u32 *freq);
 void pt3_qm_dummy_reset(PT3_I2C_BUS * bus, PT3_TC *tc, PT3_QM *qm);
 void pt3_qm_init_reg_param(PT3_QM *qm);
 int pt3_qm_init(PT3_I2C_BUS * bus, PT3_TC *tc, PT3_QM *qm);
+PT3_QM * create_pt3_qm(void);
+void free_pt3_qm(PT3_QM *qm);
 
 #endif

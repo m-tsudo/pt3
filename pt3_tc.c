@@ -145,3 +145,31 @@ pt3_tc_init_t(PT3_I2C_BUS *bus, PT3_TC *tc)
 	buf = 0x10;
 	return pt3_tc_write(bus, tc, 0x1c, &buf, 1);
 }
+
+PT3_TC *
+create_pt3_tc(__u8 tc_addr, __u8 qm_addr)
+{
+	PT3_TC *tc;
+
+	tc = NULL;
+
+	tc = vzalloc(sizeof(PT3_TC));
+	if (tc == NULL)
+		goto fail;
+
+	tc->tc_addr = tc_addr;
+	tc->qm_addr = qm_addr;
+	tc->master_clock_freq = 78;
+
+	return tc;
+fail:
+	if (tc != NULL)
+		vfree(tc);
+	return NULL;
+}
+
+void
+free_pt3_tc(PT3_TC *tc)
+{
+	vfree(tc);
+}

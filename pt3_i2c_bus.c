@@ -277,20 +277,20 @@ create_pt3_i2c_bus(void __iomem *regs)
 	sbuf = NULL;
 	rbuf = NULL;
 
-	bus = kzalloc(sizeof(PT3_I2C_BUS), GFP_KERNEL);
+	bus = vzalloc(sizeof(PT3_I2C_BUS));
 
 	if (bus == NULL)
 		goto fail;
 
-	priv = kzalloc(sizeof(PT3_I2C_BUS_PRIV_DATA), GFP_KERNEL);
+	priv = vzalloc(sizeof(PT3_I2C_BUS_PRIV_DATA));
 	if (priv == NULL)
 		goto fail;
 
-	sbuf = kzalloc(MAX_INSTRUCTIONS / 2, GFP_KERNEL);
+	sbuf = vzalloc(MAX_INSTRUCTIONS / 2);
 	if (sbuf == NULL)
 		goto fail;
 
-	rbuf = kzalloc(MAX_INSTRUCTIONS / 2, GFP_KERNEL);
+	rbuf = vzalloc(MAX_INSTRUCTIONS / 2);
 	if (rbuf == NULL)
 		goto fail;
 
@@ -304,13 +304,13 @@ create_pt3_i2c_bus(void __iomem *regs)
 	return bus;
 fail:
 	if (bus != NULL)
-		kfree(bus);
+		vfree(bus);
 	if (priv != NULL)
-		kfree(priv);
+		vfree(priv);
 	if (sbuf != NULL)
-		kfree(sbuf);
+		vfree(sbuf);
 	if (rbuf != NULL)
-		kfree(rbuf);
+		vfree(rbuf);
 	return NULL;
 }
 
@@ -322,11 +322,11 @@ free_pt3_i2c_bus(PT3_I2C_BUS *bus)
 
 	if (priv != NULL) {
 		if (priv->sbuf != NULL)
-			kfree(priv->sbuf);
+			vfree(priv->sbuf);
 		if (priv->rbuf != NULL)
-			kfree(priv->rbuf);
-		kfree(priv);
+			vfree(priv->rbuf);
+		vfree(priv);
 	}
 
-	kfree(bus);
+	vfree(bus);
 }

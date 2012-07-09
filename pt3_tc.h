@@ -5,11 +5,6 @@
 
 #define TC_THROUGH 0xfe
 
-enum {
-	PT3_ISDB_S,
-	PT3_ISDB_T,
-};
-
 typedef struct _PT3_TC {
 	__u8 tc_addr;
 	__u8 qm_addr;
@@ -22,5 +17,7 @@ int pt3_tc_read_tuner(PT3_I2C_BUS *bus, PT3_TC *tc, __u8 addr, __u8 *data, __u32
 int pt3_tc_write_tuner(PT3_I2C_BUS *bus, PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
 int pt3_tc_init_s(PT3_I2C_BUS *bus, PT3_TC *tc);
 int pt3_tc_init_t(PT3_I2C_BUS *bus, PT3_TC *tc);
+PT3_TC * create_pt3_tc(__u8 tc_addr, __u8 qm_addr);
+void free_pt3_tc(PT3_TC *tc);
 
 #endif

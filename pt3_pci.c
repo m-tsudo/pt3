@@ -38,6 +38,9 @@ typedef struct pm_message {
 #include	"pt3_com.h"
 #include	"pt3_pci.h"
 #include	"pt3_i2c_bus.h"
+#include	"pt3_tc.h"
+#include	"pt3_qm.h"
+#include	"pt3_mx.h"
 
 /* These identify the driver base version and may not be removed. */
 static char version[] __devinitdata =
@@ -81,6 +84,13 @@ typedef struct _PT3_SYSTEM {
 	__u8		can_transport_ts;
 } PT3_SYSTEM;
 
+typedef struct _PT3_TUNER {
+	PT3_TC *tc_s;
+	PT3_TC *tc_t;
+	PT3_QM *qm;
+	PT3_MX *mx;
+} PT3_TUNER;
+
 typedef	struct	_pt3_device{
 	unsigned long	mmio_start ;
 	__u32			mmio_len ;
@@ -95,6 +105,7 @@ typedef	struct	_pt3_device{
 	PT3_VERSION		version;
 	PT3_SYSTEM		system;
 	PT3_I2C_BUS		*i2c_bus;
+	PT3_TUNER       tuner[MAX_TUNER];
 } PT3_DEVICE;
 
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
@@ -277,6 +288,23 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	init_waitqueue_head(&dev_conf->dma_wait_q);
 
 	// Tuner
+	for (lp = 0; lp < MAX_TUNER; lp++) {
+		__u8 tc_addr, tuner_addr;
+		__u32 pin;
+		PT3_TUNER *tuner;
+
+		tuner = &dev_conf->tuner[lp];
+		pin = 0;
+		tc_addr = pt3_tc_address(pin, PT3_ISDB_S, lp);
+		tuner_addr = pt3_qm_address(lp);
+
+		tuner->qm   = create_pt3_qm();
+		tuner->tc_s = create_pt3_tc(tc_addr, tuner_addr);
+
+		tc_addr = pt3_tc_address(pin, PT3_ISDB_T, lp);
+		tuner_addr = pt3_mx_address(lp);
+		tuner->tc_t = create_pt3_tc(tc_addr, tuner_addr);
+	}
 
 	minor = MINOR(dev_conf->dev) ;
 	dev_conf->base_minor = minor ;
@@ -305,6 +333,7 @@ out_err_regbase:
 static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 {
 
+	__u32 lp;
 	PT3_DEVICE	*dev_conf = (PT3_DEVICE *)pci_get_drvdata(pdev);
 
 	if(dev_conf){
@@ -315,6 +344,19 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 
 		if (dev_conf->i2c_bus)
 			free_pt3_i2c_bus(dev_conf->i2c_bus);
+
+		for (lp = 0; lp < MAX_TUNER; lp++) {
+			PT3_TUNER *tuner = &dev_conf->tuner[lp];
+
+			if (tuner->tc_s != NULL)
+				free_pt3_tc(tuner->tc_s);
+			if (tuner->tc_t != NULL)
+				free_pt3_tc(tuner->tc_t);
+			if (tuner->qm != NULL)
+				free_pt3_qm(tuner->qm);
+			if (tuner->mx != NULL)
+				free_pt3_mx(tuner->mx);
+		}
 		
 		unregister_chrdev_region(dev_conf->dev, MAX_CHANNEL);
 		release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
