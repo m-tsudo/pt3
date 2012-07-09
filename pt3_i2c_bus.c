@@ -27,6 +27,10 @@ static __u32 tmp_inst;
 
 typedef struct _PT3_I2C_BUS_PRIV_DATA {
 	__u8 *sbuf;
+	__u8 *rbuf;
+	__u8 *s;
+	__u8 *r;
+	__u32 read_addr;
 } PT3_I2C_BUS_PRIV_DATA;
 
 enum {
@@ -53,7 +57,6 @@ enum {
 static void
 add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 {
-	__u8 *dst;
 	PT3_I2C_BUS_PRIV_DATA *priv;
 	priv = bus->priv;
 
@@ -64,10 +67,26 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 	}
 
 	if (bus->inst_count % 2) {
-		dst = priv->sbuf + (bus->inst_count / 2);
-		memcpy(dst, &tmp_inst, sizeof(tmp_inst));
+		memcpy(priv->s, &tmp_inst, sizeof(tmp_inst));
+		priv->s += sizeof(tmp_inst);
 	}
 	bus->inst_count += 1;
+}
+
+static __u32
+datan(PT3_I2C_BUS *bus, size_t index, __u32 n)
+{
+	__u32 i, buf;
+	PT3_I2C_BUS_PRIV_DATA *priv;
+	priv = bus->priv;
+
+	buf = 0;
+	for (i = 0; i < n; i++) {
+		buf = buf << 8;
+		buf |= priv->rbuf[index + i];
+	}
+
+	return buf;
 }
 
 void
@@ -102,6 +121,44 @@ pt3_i2c_bus_write(PT3_I2C_BUS *bus, const __u8 *data, __u32 size)
 		}
 		add_instruction(bus, I_DATA_H_ACK0);
 	}
+}
+
+size_t
+pt3_i2c_bus_read(PT3_I2C_BUS *bus, __u32 size)
+{
+	__u32 i, j;
+	size_t index;
+	PT3_I2C_BUS_PRIV_DATA *priv;
+	priv = bus->priv;
+
+	for (i = 0; i < size; i++) {
+		for (j = 0; j < 8; j++) {
+			add_instruction(bus, I_DATA_H_READ);
+		}
+
+		if (i == (size - 1))
+			add_instruction(bus, I_DATA_H_NOP);
+		else
+			add_instruction(bus, I_DATA_L_NOP);
+	}
+	index = priv->read_addr;
+	priv->read_addr += size;
+
+	return index;
+}
+
+__u8
+pt3_i2c_bus_data1(PT3_I2C_BUS *bus, size_t index)
+{
+	return (__u8)datan(bus, index, 1);
+}
+
+void
+pt3_i2c_bus_sleep(PT3_I2C_BUS *bus, __u32 ms)
+{
+	__u32 i;
+	for (i = 0; i< ms; i++)
+		add_instruction(bus, I_SLEEP);
 }
 
 void
@@ -160,12 +217,18 @@ pt3_i2c_bus_copy(PT3_I2C_BUS *bus)
 	src = priv->sbuf;
 	dst = bus->base + REGS_I2C_INST + (bus->inst_addr / 2);
 	memcpy(dst, src, (bus->inst_count / 2));
+	priv->s = priv->sbuf;
+	bus->inst_count = 0;
 }
 
 int
 pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy)
 {
 	int ret;
+	__u32 rsize;
+	__u8 *src;
+	PT3_I2C_BUS_PRIV_DATA *priv;
+	priv = bus->priv;
 
 	mutex_lock(&bus->lock);
 
@@ -174,6 +237,11 @@ pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy)
 	}
 
 	ret = run_code(bus, bus->inst_addr, ack);
+
+	rsize = priv->read_addr;
+	src = bus->base + REGS_I2C_INST;
+	memcpy(priv->r, src, rsize);
+	priv->r += rsize;
 
 	mutex_unlock(&bus->lock);
 
@@ -202,10 +270,12 @@ create_pt3_i2c_bus(void __iomem *regs)
 	PT3_I2C_BUS *bus;
 	PT3_I2C_BUS_PRIV_DATA *priv;
 	__u8 *sbuf;
+	__u8 *rbuf;
 
 	bus = NULL;
 	priv = NULL;
 	sbuf = NULL;
+	rbuf = NULL;
 
 	bus = kzalloc(sizeof(PT3_I2C_BUS), GFP_KERNEL);
 
@@ -220,14 +290,27 @@ create_pt3_i2c_bus(void __iomem *regs)
 	if (sbuf == NULL)
 		goto fail;
 
+	rbuf = kzalloc(MAX_INSTRUCTIONS / 2, GFP_KERNEL);
+	if (rbuf == NULL)
+		goto fail;
+
 	mutex_init(&bus->lock);
 	bus->base = regs;
 	priv->sbuf = sbuf;
+	priv->rbuf = rbuf;
+	priv->read_addr = 0;
 	bus->priv = priv;
 
 	return bus;
 fail:
-	free_pt3_i2c_bus(bus);
+	if (bus != NULL)
+		kfree(bus);
+	if (priv != NULL)
+		kfree(priv);
+	if (sbuf != NULL)
+		kfree(sbuf);
+	if (rbuf != NULL)
+		kfree(rbuf);
 	return NULL;
 }
 
@@ -240,6 +323,8 @@ free_pt3_i2c_bus(PT3_I2C_BUS *bus)
 	if (priv != NULL) {
 		if (priv->sbuf != NULL)
 			kfree(priv->sbuf);
+		if (priv->rbuf != NULL)
+			kfree(priv->rbuf);
 		kfree(priv);
 	}
 

@@ -14,7 +14,10 @@ typedef struct _PT3_I2C_BUS {
 void pt3_i2c_bus_start(PT3_I2C_BUS *bus);
 void pt3_i2c_bus_stop(PT3_I2C_BUS *bus);
 void pt3_i2c_bus_write(PT3_I2C_BUS *bus, const __u8 *data, __u32 size);
+size_t pt3_i2c_bus_read(PT3_I2C_BUS *bus, __u32 size);
+__u8 pt3_i2c_bus_data1(PT3_I2C_BUS *bus, size_t index);
 void pt3_i2c_bus_end(PT3_I2C_BUS *bus);
+void pt3_i2c_bus_sleep(PT3_I2C_BUS *bus, __u32 ms);
 void pt3_i2c_bus_copy(PT3_I2C_BUS *bus);
 int pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy);
 int pt3_i2c_bus_is_clean(PT3_I2C_BUS *bus);

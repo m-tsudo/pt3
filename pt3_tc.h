@@ -18,6 +18,7 @@ typedef struct _PT3_TC {
 
 __u8 pt3_tc_address(__u32 pin, int isdb, __u32 index);
 int pt3_tc_write(PT3_I2C_BUS *bus, PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
+int pt3_tc_read_tuner(PT3_I2C_BUS *bus, PT3_TC *tc, __u8 addr, __u8 *data, __u32 size);
 int pt3_tc_write_tuner(PT3_I2C_BUS *bus, PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
 int pt3_tc_init_s(PT3_I2C_BUS *bus, PT3_TC *tc);
 int pt3_tc_init_t(PT3_I2C_BUS *bus, PT3_TC *tc);
