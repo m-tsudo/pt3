@@ -153,6 +153,13 @@ pt3_qm_address(__u32 index)
 	return qm_address[index];
 }
 
+int
+pt3_qm_set_sleep(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm, int sleep)
+{
+	// TODO
+	return 0;
+}
+
 void
 pt3_qm_dummy_reset(PT3_I2C_BUS * bus, PT3_TC *tc, PT3_QM *qm)
 {
@@ -237,6 +244,8 @@ create_pt3_qm()
 	qm = vzalloc(sizeof(PT3_QM));
 	if (qm == NULL)
 		goto fail;
+
+	qm->sleep = 1;
 
 	return qm;
 fail:

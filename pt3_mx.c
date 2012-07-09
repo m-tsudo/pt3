@@ -29,6 +29,13 @@ pt3_mx_address(__u32 index)
 	return mx_address[index];
 }
 
+int
+pt3_mx_set_sleep(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_MX *mx, int sleep)
+{
+	// TODO
+	return 0;
+}
+
 PT3_MX *
 create_pt3_mx()
 {
@@ -39,6 +46,8 @@ create_pt3_mx()
 	mx = vzalloc(sizeof(PT3_MX));
 	if (mx == NULL)
 		goto fail;
+
+	mx->sleep = 1;
 	
 	return mx;
 fail:

@@ -43,7 +43,7 @@ pt3_tc_write(PT3_I2C_BUS *bus, PT3_TC *tc, __u8 addr, const __u8 *data, __u32 si
 
 	pt3_i2c_bus_end(bus);
 
-	return pt3_i2c_bus_run(bus, NULL, 0);
+	return pt3_i2c_bus_run(bus, NULL, 1);
 }
 
 int
@@ -144,6 +144,20 @@ pt3_tc_init_t(PT3_I2C_BUS *bus, PT3_TC *tc)
 	write_imsrst(bus, tc);
 	buf = 0x10;
 	return pt3_tc_write(bus, tc, 0x1c, &buf, 1);
+}
+
+int
+pt3_tc_set_powers(PT3_I2C_BUS *bus, PT3_TC *tc, int tuner, int amp)
+{
+	int status;
+	__u8 tuner_power = tuner ? 0x03 : 0x02;
+	__u8 amp_power = amp ? 0x03 : 0x02;
+
+	__u8 data = tuner_power << 6 | 0x01 << 4 | amp_power << 2 | 0x01 << 0;
+
+	status = pt3_tc_write(bus, tc, 0x1e, &data, 1);
+
+	return status;
 }
 
 PT3_TC *

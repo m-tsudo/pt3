@@ -23,7 +23,7 @@
 
 #define MAX_INSTRUCTIONS 4096
 
-static __u32 tmp_inst;
+static __u8 tmp_inst;
 
 typedef struct _PT3_I2C_BUS_PRIV_DATA {
 	__u8 *sbuf;
@@ -67,6 +67,8 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 	}
 
 	if (bus->inst_count % 2) {
+		printk(KERN_DEBUG "PT3 : add_instruction %d %p %x",
+						bus->inst_count, priv->s, tmp_inst);
 		memcpy(priv->s, &tmp_inst, sizeof(tmp_inst));
 		priv->s += sizeof(tmp_inst);
 	}
@@ -178,7 +180,7 @@ wait(PT3_I2C_BUS *bus, __u32 *data)
 	__u32 val;
 	
 	while (1) {
-		val = readl(bus->base + REGS_I2C_R);
+		val = readl(bus->bar[0].regs + REGS_I2C_R);
 		if (!BIT_SHIFT_MASK(val, 0, 1))
 			break;
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
@@ -195,7 +197,7 @@ run_code(PT3_I2C_BUS *bus, __u32 start_addr, __u32 *ack)
 
 	wait(bus, &data);
 
-	writel(1 << 16 | start_addr, bus->base + REGS_I2C_W);
+	writel(1 << 16 | start_addr, bus->bar[0].regs + REGS_I2C_W);
 
 	wait(bus, &data);
 
@@ -215,8 +217,10 @@ pt3_i2c_bus_copy(PT3_I2C_BUS *bus)
 	priv = bus->priv;
 
 	src = priv->sbuf;
-	dst = bus->base + REGS_I2C_INST + (bus->inst_addr / 2);
-	memcpy(dst, src, (bus->inst_count / 2));
+	dst = bus->bar[1].regs + (bus->inst_addr / 2);
+	printk(KERN_DEBUG "PT3 : i2c_bus_copy. base=%p dst=%p src=%p size=%d",
+						bus->bar[1].regs, dst, src, bus->inst_count / 2);
+	memcpy(dst, src, bus->inst_count / 2);
 	priv->s = priv->sbuf;
 	bus->inst_count = 0;
 }
@@ -239,7 +243,7 @@ pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy)
 	ret = run_code(bus, bus->inst_addr, ack);
 
 	rsize = priv->read_addr;
-	src = bus->base + REGS_I2C_INST;
+	src = bus->bar[1].regs;
 	memcpy(priv->r, src, rsize);
 	priv->r += rsize;
 
@@ -253,7 +257,7 @@ pt3_i2c_bus_is_clean(PT3_I2C_BUS *bus)
 {
 	__u32 val;
 
-	val = readl(bus->base + REGS_I2C_R);
+	val = readl(bus->bar[0].regs + REGS_I2C_R);
 
 	return BIT_SHIFT_MASK(val, 3, 1);
 }
@@ -261,11 +265,11 @@ pt3_i2c_bus_is_clean(PT3_I2C_BUS *bus)
 void
 pt3_i2c_bus_reset(PT3_I2C_BUS *bus)
 {
-	writel(1 << 17, bus->base + REGS_I2C_W);
+	writel(1 << 17, bus->bar[0].regs + REGS_I2C_W);
 }
 
 PT3_I2C_BUS *
-create_pt3_i2c_bus(void __iomem *regs)
+create_pt3_i2c_bus(BAR *bar)
 {
 	PT3_I2C_BUS *bus;
 	PT3_I2C_BUS_PRIV_DATA *priv;
@@ -286,18 +290,20 @@ create_pt3_i2c_bus(void __iomem *regs)
 	if (priv == NULL)
 		goto fail;
 
-	sbuf = vzalloc(MAX_INSTRUCTIONS / 2);
+	sbuf = vzalloc(MAX_INSTRUCTIONS);
 	if (sbuf == NULL)
 		goto fail;
 
-	rbuf = vzalloc(MAX_INSTRUCTIONS / 2);
+	rbuf = vzalloc(MAX_INSTRUCTIONS);
 	if (rbuf == NULL)
 		goto fail;
 
 	mutex_init(&bus->lock);
-	bus->base = regs;
+	bus->bar = bar;
 	priv->sbuf = sbuf;
 	priv->rbuf = rbuf;
+	priv->s = sbuf;
+	priv->r = rbuf;
 	priv->read_addr = 0;
 	bus->priv = priv;
 

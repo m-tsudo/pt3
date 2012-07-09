@@ -92,9 +92,7 @@ typedef struct _PT3_TUNER {
 } PT3_TUNER;
 
 typedef	struct	_pt3_device{
-	unsigned long	mmio_start ;
-	__u32			mmio_len ;
-	void __iomem		*regs;
+	BAR		bar[2];
 	struct mutex		lock ;
 	struct	task_struct	*kthread;
 	dev_t			dev ;
@@ -115,11 +113,38 @@ static struct class	*pt3video_class;
 #define		DRIVERNAME	"pt3video"
 
 static int
+setup_bar(struct pci_dev *pdev, BAR *bar, int index)
+{
+	struct resource *dummy;
+
+	bar->mmio_start = pci_resource_start(pdev, index);
+	bar->mmio_len = pci_resource_len(pdev, index);
+	dummy = request_mem_region(bar->mmio_start, bar->mmio_len, DEV_NAME);
+	if (!dummy) {
+		printk(KERN_ERR "PT3:cannot request iomem  (0x%llx).\n", (unsigned long long) bar->mmio_start);
+		goto out_err_regbase;
+	}
+	printk(KERN_DEBUG "request_mem_resion success. mmio_start=%lu mmio_len=%u",
+						bar->mmio_start, bar->mmio_len);
+
+	bar->regs = ioremap(bar->mmio_start, bar->mmio_len);
+	if (!bar->regs){
+		printk(KERN_ERR "pt3:Can't remap register area.\n");
+		goto out_err_regbase;
+	}
+	printk(KERN_DEBUG "io_remap success. %p", bar->regs);
+
+	return 0;
+out_err_regbase:
+	return -1;
+}
+
+static int
 ep4c_init(PT3_DEVICE *dev_conf)
 {
 	__u32	val;
 	
-	val = readl(dev_conf->regs + REGS_VERSION);
+	val = readl(dev_conf->bar[0].regs + REGS_VERSION);
 
 	dev_conf->version.ptn = ((val >> 24) & 0xFF);
 	dev_conf->version.regs = ((val >> 16) & 0xFF);
@@ -136,7 +161,7 @@ ep4c_init(PT3_DEVICE *dev_conf)
 	}
 	printk(KERN_DEBUG "Check FPGA version is passed.");
 
-	val = readl(dev_conf->regs + REGS_SYSTEM_R);
+	val = readl(dev_conf->bar[0].regs + REGS_SYSTEM_R);
 	dev_conf->system.can_transport_ts = ((val >> 5) & 0x01);
 	printk(KERN_DEBUG "can_transport_ts = %d\n",
 						dev_conf->system.can_transport_ts);
@@ -145,6 +170,128 @@ ep4c_init(PT3_DEVICE *dev_conf)
 						dev_conf->system.dma_descriptor_page_size);
 
 	return 0;
+}
+
+static int
+get_tuner_status(int isdb, PT3_TUNER *tuner)
+{
+	int sleep;
+
+	sleep = 1;
+	switch (isdb) {
+	case PT3_ISDB_S :
+		sleep = tuner->qm->sleep;
+		break;
+	case PT3_ISDB_T :
+		sleep = tuner->mx->sleep;
+		break;
+	}
+	return sleep ? -1 : 0;
+}
+
+static int
+set_tuner_sleep(PT3_I2C_BUS *bus, int isdb, PT3_TUNER *tuner, int sleep)
+{
+	int status;
+
+	status = get_tuner_status(isdb, tuner);
+	if (status)
+		return status;
+	
+	switch (isdb) {
+	case PT3_ISDB_S :
+		status = pt3_qm_set_sleep(bus, tuner->tc_s, tuner->qm, sleep);
+		break;
+	case PT3_ISDB_T :
+		status = pt3_mx_set_sleep(bus, tuner->tc_t, tuner->mx, sleep);
+		break;
+	}
+
+	return status;
+}
+
+static int
+init_tuner(PT3_I2C_BUS *bus, PT3_TUNER *tuner)
+{
+	int status;
+
+	pt3_qm_init_reg_param(tuner->qm);
+
+	pt3_qm_dummy_reset(bus,tuner->tc_s, tuner->qm);
+	pt3_i2c_bus_end(bus);
+	pt3_i2c_bus_run(bus, NULL, 1);
+
+	status = pt3_qm_init(bus,tuner->tc_s, tuner->qm);
+	if (status)
+		return status;
+	pt3_i2c_bus_end(bus);
+	pt3_i2c_bus_run(bus, NULL, 1);
+
+	return status;
+}
+
+static int
+tuner_power_on(PT3_DEVICE *dev_conf)
+{
+	int status, i;
+
+	PT3_I2C_BUS *bus = dev_conf->i2c_bus;
+	PT3_TUNER *tuner;
+
+	for (i = 0; i < MAX_TUNER; i++) {
+		tuner = &dev_conf->tuner[i];
+		pt3_tc_init_s(bus, tuner->tc_s);
+		pt3_tc_init_t(bus, tuner->tc_t);
+		printk(KERN_DEBUG "tc_init %d", i);
+	}
+
+	tuner = &dev_conf->tuner[1];
+	status = pt3_tc_set_powers(bus, tuner->tc_t, 1, 0);
+	if (status)
+		return status;
+
+	for (i = 0; i < MAX_TUNER; i++) {
+		status = init_tuner(bus, &dev_conf->tuner[i]);
+		if (status)
+			return status;
+		printk(KERN_DEBUG "init_tuner %d", i);
+	}
+
+	bus->inst_addr = PT3_I2C_INST_ADDR1;
+
+	status = pt3_i2c_bus_run(bus, NULL, 0);
+	if (status)
+		return status;
+
+	status = pt3_tc_set_powers(bus, tuner->tc_t, 1, 1);
+	if (status)
+		return status;
+
+	return status;
+}
+
+static int
+init_all_tuner(PT3_DEVICE *dev_conf)
+{
+	int status;
+	PT3_I2C_BUS *bus = dev_conf->i2c_bus;
+
+	pt3_i2c_bus_end(bus);
+	bus->inst_addr = PT3_I2C_INST_ADDR0;
+	printk(KERN_DEBUG "I2C bus end.");
+
+	if (!pt3_i2c_bus_is_clean(bus)) {
+		printk(KERN_INFO "I2C bus is duty.");
+		status = pt3_i2c_bus_run(bus, NULL, 0);
+		if (status)
+			return status;
+	}
+
+	status = tuner_power_on(dev_conf);
+	if (status)
+		return status;
+
+	return status;
 }
 
 static int pt3_open(struct inode *inode, struct file *file)
@@ -215,7 +362,6 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	u16			cmd ;
 	u32			class_revision ;
 	PT3_DEVICE	*dev_conf ;
-	struct resource *dummy;
 
 	rc = pci_enable_device(pdev);
 	if (rc)
@@ -255,21 +401,10 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	printk(KERN_DEBUG "Allocate PT3_DEVICE.");
 
 	// PCIアドレスをマップする
-	dev_conf->mmio_start = pci_resource_start(pdev, 0);
-	dev_conf->mmio_len = pci_resource_len(pdev, 0);
-	dummy = request_mem_region(dev_conf->mmio_start, dev_conf->mmio_len, DEV_NAME);
-	if (!dummy) {
-		printk(KERN_ERR "PT3:cannot request iomem  (0x%llx).\n", (unsigned long long) dev_conf->mmio_start);
+	if (setup_bar(pdev, &dev_conf->bar[0], 0))
 		goto out_err_regbase;
-	}
-	printk(KERN_DEBUG "request_mem_resion success.");
-
-	dev_conf->regs = ioremap(dev_conf->mmio_start, dev_conf->mmio_len);
-	if (!dev_conf->regs){
-		printk(KERN_ERR "pt3:Can't remap register area.\n");
+	if (setup_bar(pdev, &dev_conf->bar[1], 2))
 		goto out_err_regbase;
-	}
-	printk(KERN_DEBUG "io_remap success.");
 
 	// 初期化処理
 	if(ep4c_init(dev_conf)){
@@ -277,7 +412,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		goto out_err_fpga;
 	}
 	mutex_init(&dev_conf->lock);
-	dev_conf->i2c_bus = create_pt3_i2c_bus(dev_conf->regs);
+	dev_conf->i2c_bus = create_pt3_i2c_bus(&dev_conf->bar[0]);
 	if (dev_conf->i2c_bus == NULL) {
 		printk(KERN_ERR "PT3: cannot allocate i2c_bus.");
 		goto out_err_i2c_bus;
@@ -305,6 +440,21 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		tuner_addr = pt3_mx_address(lp);
 		tuner->tc_t = create_pt3_tc(tc_addr, tuner_addr);
 	}
+	printk(KERN_DEBUG "Allocate tuners.");
+
+	init_all_tuner(dev_conf);
+
+	for (lp = 0; lp < MAX_TUNER; lp++) {
+		PT3_TUNER *tuner = &dev_conf->tuner[lp];
+		rc = set_tuner_sleep(dev_conf->i2c_bus, PT3_ISDB_S, tuner, 0);
+		if (rc)
+			printk(KERN_ERR
+					"failed set_tuner_sleep tuner[%d] PT3_ISDB_S %d", lp, rc);
+		rc = set_tuner_sleep(dev_conf->i2c_bus, PT3_ISDB_T, tuner, 0);
+		if (rc)
+			printk(KERN_ERR
+					"failed set_tuner_sleep tuner[%d] PT3_ISDB_T %d", lp, rc);
+	}
 
 	minor = MINOR(dev_conf->dev) ;
 	dev_conf->base_minor = minor ;
@@ -323,8 +473,10 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 out_err_i2c_bus:
 	free_pt3_i2c_bus(dev_conf->i2c_bus);
 out_err_fpga:
-	iounmap(dev_conf->regs);
-	release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
+	iounmap(dev_conf->bar[0].regs);
+	release_mem_region(dev_conf->bar[0].mmio_start, dev_conf->bar[0].mmio_len);
+	iounmap(dev_conf->bar[1].regs);
+	release_mem_region(dev_conf->bar[1].mmio_start, dev_conf->bar[1].mmio_len);
 out_err_regbase:
 	kfree(dev_conf);
 	return -EIO;
@@ -359,8 +511,10 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 		}
 		
 		unregister_chrdev_region(dev_conf->dev, MAX_CHANNEL);
-		release_mem_region(dev_conf->mmio_start, dev_conf->mmio_len);
-		iounmap(dev_conf->regs);
+		release_mem_region(dev_conf->bar[0].mmio_start, dev_conf->bar[0].mmio_len);
+		release_mem_region(dev_conf->bar[1].mmio_start, dev_conf->bar[1].mmio_len);
+		iounmap(dev_conf->bar[0].regs);
+		iounmap(dev_conf->bar[1].regs);
 		device[dev_conf->card_number] = NULL;
 		kfree(dev_conf);
 		printk(KERN_DEBUG "free PT3 DEVICE.");
