@@ -1,5 +1,3 @@
-/* -*- tab-width: 4; indent-tabs-mode: t -*- */
-/* pt3-pci.c: A PT3 on PCI bus driver for Linux. */
 #define DRV_NAME	"pt3-pci"
 #include "version.h"
 
@@ -108,7 +106,7 @@ ep4c_init(PT3_DEVICE *dev_conf)
 {
 	__u32	val;
 	
-	val = readl(dev_conf->regs);
+	val = readl(dev_conf->regs + REGS_VERSION);
 
 	dev_conf->version.ptn = ((val >> 24) & 0xFF);
 	dev_conf->version.regs = ((val >> 16) & 0xFF);
@@ -125,7 +123,7 @@ ep4c_init(PT3_DEVICE *dev_conf)
 	}
 	printk(KERN_DEBUG "Check FPGA version is passed.");
 
-	val = readl(dev_conf->regs + 0x0c);
+	val = readl(dev_conf->regs + REGS_SYSTEM_R);
 	dev_conf->system.can_transport_ts = ((val >> 5) & 0x01);
 	printk(KERN_DEBUG "can_transport_ts = %d\n",
 						dev_conf->system.can_transport_ts);
