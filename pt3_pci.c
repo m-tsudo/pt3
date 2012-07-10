@@ -91,6 +91,8 @@ typedef struct _PT3_TUNER {
 	PT3_MX *mx;
 } PT3_TUNER;
 
+typedef struct _PT3_CHANNEL PT3_CHANNEL;
+
 typedef	struct	_pt3_device{
 	BAR		bar[2];
 	struct mutex		lock ;
@@ -104,7 +106,20 @@ typedef	struct	_pt3_device{
 	PT3_SYSTEM		system;
 	PT3_I2C_BUS		*i2c_bus;
 	PT3_TUNER       tuner[MAX_TUNER];
+	PT3_CHANNEL		*channel[MAX_CHANNEL];
 } PT3_DEVICE;
+
+struct _PT3_CHANNEL {
+	__u32			valid ;
+	__u32			minor;
+	PT3_TUNER		*tuner;
+	int				type ;
+	struct mutex	lock ;
+	struct mutex	biglock ;
+	PT3_DEVICE		*ptr ;
+	PT3_I2C_BUS		*bus;
+	wait_queue_head_t	wait_q ;
+};
 
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
 static struct class	*pt3video_class;
@@ -294,11 +309,57 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 
 static int pt3_open(struct inode *inode, struct file *file)
 {
+	int major = imajor(inode);
+	int minor = iminor(inode);
+	int lp, lp2;
+	PT3_CHANNEL *channel;
+
+	for (lp = 0; lp < MAX_PCI_DEVICE; lp++) {
+		if (device[lp] == NULL) {
+			return -EIO;
+		}
+
+		if (MAJOR(device[lp]->dev) == major &&
+			device[lp]->base_minor <= minor &&
+			device[lp]->base_minor + MAX_CHANNEL > minor) {
+
+			mutex_lock(&device[lp]->lock);
+			for (lp2 = 0; lp2 < MAX_CHANNEL; lp2++) {
+				channel = device[lp]->channel[lp2];
+				if (channel->valid) {
+					mutex_unlock(&device[lp]->lock);
+					return -EIO;
+				}
+
+				set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
+				schedule_timeout_interruptible(msecs_to_jiffies(50));
+
+				channel->valid = 1;
+				file->private_data = channel;
+
+				mutex_unlock(&device[lp]->lock);
+
+				return 0;
+			}
+			mutex_unlock(&device[lp]->lock);
+		}
+	}
+
 	return -EIO;
 }
 
 static int pt3_release(struct inode *inode, struct file *file)
 {
+	PT3_CHANNEL *channel = file->private_data;
+
+	mutex_lock(&channel->ptr->lock);
+	channel->valid = 0;
+	// TODO wait DMA
+	mutex_unlock(&channel->ptr->lock);
+
+	set_tuner_sleep(channel->bus, channel->type, channel->tuner, 0);
+	schedule_timeout_interruptible(msecs_to_jiffies(50));
+
 	return 0;
 }
 
@@ -314,7 +375,14 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 
 static long pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
-	return 0;
+	long ret;
+	PT3_CHANNEL *channel = file->private_data;
+
+	mutex_lock(&channel->biglock);
+	ret = pt3_do_ioctl(file, cmd, arg0);
+	mutex_unlock(&channel->biglock);
+
+	return ret;
 }
 
 static long pt3_compat_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
@@ -357,10 +425,10 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	int			rc ;
 	int			lp ;
 	int			minor ;
-	struct		device *dev;
 	u16			cmd ;
 	u32			class_revision ;
 	PT3_DEVICE	*dev_conf ;
+	PT3_CHANNEL *channel;
 
 	rc = pci_enable_device(pdev);
 	if (rc)
@@ -482,29 +550,56 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 			printk(KERN_ERR "fail cdev_add.");
 		}
 
+		channel = kzalloc(sizeof(PT3_CHANNEL), GFP_KERNEL);
+		if (channel == NULL) {
+			printk(KERN_ERR "PT3:out of memory !");
+			return -ENOMEM;
+		}
+
+		mutex_init(&channel->lock);
+		mutex_init(&channel->biglock);
+		channel->minor = MINOR(dev_conf->dev) + lp;
+		channel->tuner = &dev_conf->tuner[lp & 0x01];
+		channel->type = (lp >> 1) ? PT3_ISDB_S : PT3_ISDB_T;
+		channel->ptr = dev_conf;
+		channel->bus = dev_conf->i2c_bus;
+		dev_conf->channel[lp] = channel;
+
+		init_waitqueue_head(&channel->wait_q);
+
+		switch (channel->type) {
+		case PT3_ISDB_S :
+			break;
+		case PT3_ISDB_T :
+			break;
+		}
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 		printk(KERN_INFO "PT3:card_number = %d\n", dev_conf->card_number);
-		dev = device_create(pt3video_class,
+		device_create(pt3video_class,
 					NULL,
 					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
 					NULL,
 					"pt3video%u",
 					MINOR(dev_conf->dev) + lp + dev_conf->card_number * MAX_CHANNEL);
 #else
-		dev = device_create(pt3video_class,
+		device_create(pt3video_class,
 					NULL,
 					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
 					"pt3video%u",
 					MINOR(dev_conf->dev) + lp + dev_conf->card_number * MAX_CHANNEL);
 #endif
-		if (dev == NULL) {
-			printk(KERN_ERR "fail device_create.");
-		}
 	}
 
 	pci_set_drvdata(pdev, dev_conf);
 	return 0;
 
+out_err_v4l:
+	for (lp = 0; lp < MAX_CHANNEL; lp++) {
+		if (dev_conf->channel[lp] != NULL) {
+			kfree(dev_conf->channel[lp]);
+		}
+	}
 out_err_i2c_bus:
 	free_pt3_i2c_bus(dev_conf->i2c_bus);
 out_err_fpga:
@@ -549,7 +644,10 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			free_pt3_i2c_bus(dev_conf->i2c_bus);
 
 		for (lp = 0; lp < MAX_CHANNEL; lp++) {
-			cdev_del(&dev_conf->cdev[lp]);
+			if (dev_conf->channel[lp] != NULL) {
+				cdev_del(&dev_conf->cdev[lp]);
+				kfree(dev_conf->channel[lp]);
+			}
 			device_destroy(pt3video_class,
 						MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)));
 		}
