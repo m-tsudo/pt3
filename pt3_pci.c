@@ -41,6 +41,7 @@ typedef struct pm_message {
 #include	"pt3_tc.h"
 #include	"pt3_qm.h"
 #include	"pt3_mx.h"
+#include	"pt3_dma.h"
 
 /* These identify the driver base version and may not be removed. */
 static char version[] __devinitdata =
@@ -118,6 +119,7 @@ struct _PT3_CHANNEL {
 	struct mutex	biglock ;
 	PT3_DEVICE		*ptr ;
 	PT3_I2C_BUS		*bus;
+	PT3_DMA			*dma;
 	wait_queue_head_t	wait_q ;
 };
 
@@ -553,7 +555,23 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		channel = kzalloc(sizeof(PT3_CHANNEL), GFP_KERNEL);
 		if (channel == NULL) {
 			printk(KERN_ERR "PT3:out of memory !");
-			return -ENOMEM;
+			goto out_err_v4l;
+		}
+
+#if 0
+		void *p;
+		dma_addr_t addr;
+		p = pci_alloc_consistent(pdev, 4096, &addr);
+		printk(KERN_DEBUG "consistent %p %u", p, addr);
+		pci_free_consistent(pdev, 4096, p, addr);
+		goto out_err_v4l;
+#endif
+
+		channel->dma = create_pt3_dma(pdev);
+		if (channel->dma == NULL) {
+			printk(KERN_ERR "PT3: fail create dma.");
+			kfree(channel);
+			goto out_err_v4l;
 		}
 
 		mutex_init(&channel->lock);
@@ -597,7 +615,11 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 out_err_v4l:
 	for (lp = 0; lp < MAX_CHANNEL; lp++) {
 		if (dev_conf->channel[lp] != NULL) {
+			if (dev_conf->channel[lp]->dma != NULL)
+				free_pt3_dma(pdev, dev_conf->channel[lp]->dma);
 			kfree(dev_conf->channel[lp]);
+			device_destroy(pt3video_class,
+					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)));
 		}
 	}
 out_err_i2c_bus:
@@ -609,6 +631,7 @@ out_err_fpga:
 	release_mem_region(dev_conf->bar[1].mmio_start, dev_conf->bar[1].mmio_len);
 out_err_regbase:
 	kfree(dev_conf);
+out_pci_disable_device:
 	return -EIO;
 }
 
@@ -646,6 +669,8 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 		for (lp = 0; lp < MAX_CHANNEL; lp++) {
 			if (dev_conf->channel[lp] != NULL) {
 				cdev_del(&dev_conf->cdev[lp]);
+				if (dev_conf->channel[lp]->dma != NULL)
+					free_pt3_dma(pdev, dev_conf->channel[lp]->dma);
 				kfree(dev_conf->channel[lp]);
 			}
 			device_destroy(pt3video_class,
