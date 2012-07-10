@@ -186,18 +186,14 @@ get_tuner_status(int isdb, PT3_TUNER *tuner)
 		sleep = tuner->mx->sleep;
 		break;
 	}
-	return sleep ? -1 : 0;
+	return sleep ? 1 : 0;
 }
 
 static int
 set_tuner_sleep(PT3_I2C_BUS *bus, int isdb, PT3_TUNER *tuner, int sleep)
 {
-	int status;
+	STATUS status;
 
-	status = get_tuner_status(isdb, tuner);
-	if (status)
-		return status;
-	
 	switch (isdb) {
 	case PT3_ISDB_S :
 		status = pt3_qm_set_sleep(bus, tuner->tc_s, tuner->qm, sleep);
@@ -205,6 +201,8 @@ set_tuner_sleep(PT3_I2C_BUS *bus, int isdb, PT3_TUNER *tuner, int sleep)
 	case PT3_ISDB_T :
 		status = pt3_mx_set_sleep(bus, tuner->tc_t, tuner->mx, sleep);
 		break;
+	default :
+		status = STATUS_INVALID_PARAM_ERROR;
 	}
 
 	return status;
@@ -438,6 +436,8 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 
 		tc_addr = pt3_tc_address(pin, PT3_ISDB_T, lp);
 		tuner_addr = pt3_mx_address(lp);
+
+		tuner->mx   = create_pt3_mx();
 		tuner->tc_t = create_pt3_tc(tc_addr, tuner_addr);
 	}
 	printk(KERN_DEBUG "Allocate tuners.");

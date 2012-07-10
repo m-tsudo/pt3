@@ -67,8 +67,10 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 	}
 
 	if (bus->inst_count % 2) {
+#if 0
 		printk(KERN_DEBUG "PT3 : add_instruction %d %p %x",
 						bus->inst_count, priv->s, tmp_inst);
+#endif
 		memcpy(priv->s, &tmp_inst, sizeof(tmp_inst));
 		priv->s += sizeof(tmp_inst);
 	}
@@ -218,8 +220,10 @@ pt3_i2c_bus_copy(PT3_I2C_BUS *bus)
 
 	src = priv->sbuf;
 	dst = bus->bar[1].regs + (bus->inst_addr / 2);
+#if 0
 	printk(KERN_DEBUG "PT3 : i2c_bus_copy. base=%p dst=%p src=%p size=%d",
 						bus->bar[1].regs, dst, src, bus->inst_count / 2);
+#endif
 	memcpy(dst, src, bus->inst_count / 2);
 	priv->s = priv->sbuf;
 	bus->inst_count = 0;

@@ -12,7 +12,7 @@ typedef struct _PT3_MX {
 } PT3_MX;
 
 __u8 pt3_mx_address(__u32 index);
-int pt3_mx_set_sleep(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_MX *mx, int sleep);
+STATUS pt3_mx_set_sleep(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_MX *mx, int sleep);
 PT3_MX * create_pt3_mx(void);
 void free_pt3_mx(PT3_MX *mx);
 
