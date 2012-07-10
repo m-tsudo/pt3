@@ -23,14 +23,13 @@
 
 #define MAX_INSTRUCTIONS 4096
 
-static __u8 tmp_inst;
-
 typedef struct _PT3_I2C_BUS_PRIV_DATA {
 	__u8 *sbuf;
 	__u8 *rbuf;
 	__u8 *s;
 	__u8 *r;
 	__u32 read_addr;
+	__u8 tmp_inst;
 } PT3_I2C_BUS_PRIV_DATA;
 
 enum {
@@ -61,9 +60,9 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 	priv = bus->priv;
 
 	if ((bus->inst_count % 2) == 0) {
-		tmp_inst = instruction;
+		priv->tmp_inst = instruction;
 	} else {
-		tmp_inst |= instruction << 4;
+		priv->tmp_inst |= instruction << 4;
 	}
 
 	if (bus->inst_count % 2) {
@@ -71,8 +70,8 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 		printk(KERN_DEBUG "PT3 : add_instruction %d %p %x",
 						bus->inst_count, priv->s, tmp_inst);
 #endif
-		memcpy(priv->s, &tmp_inst, sizeof(tmp_inst));
-		priv->s += sizeof(tmp_inst);
+		memcpy(priv->s, &priv->tmp_inst, sizeof(priv->tmp_inst));
+		priv->s += sizeof(priv->tmp_inst);
 	}
 	bus->inst_count += 1;
 }

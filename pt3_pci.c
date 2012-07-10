@@ -279,7 +279,7 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	printk(KERN_DEBUG "I2C bus end.");
 
 	if (!pt3_i2c_bus_is_clean(bus)) {
-		printk(KERN_INFO "I2C bus is duty.");
+		printk(KERN_INFO "I2C bus is dirty.");
 		status = pt3_i2c_bus_run(bus, NULL, 0);
 		if (status)
 			return status;
@@ -357,6 +357,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	int			rc ;
 	int			lp ;
 	int			minor ;
+	struct		device *dev;
 	u16			cmd ;
 	u32			class_revision ;
 	PT3_DEVICE	*dev_conf ;
@@ -467,6 +468,40 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		}
 	}
 
+	rc =alloc_chrdev_region(&dev_conf->dev, 0, MAX_CHANNEL, DEV_NAME);
+	if (rc < 0)
+		goto out_err_fpga;
+	minor = MINOR(dev_conf->dev);
+	dev_conf->base_minor = minor;
+	for (lp = 0; lp < MAX_CHANNEL; lp++) {
+		cdev_init(&dev_conf->cdev[lp], &pt3_fops);
+		dev_conf->cdev[lp].owner = THIS_MODULE;
+		rc = cdev_add(&dev_conf->cdev[lp],
+			MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)), 1);
+		if (rc < 0) {
+			printk(KERN_ERR "fail cdev_add.");
+		}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+		printk(KERN_INFO "PT3:card_number = %d\n", dev_conf->card_number);
+		dev = device_create(pt3video_class,
+					NULL,
+					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
+					NULL,
+					"pt3video%u",
+					MINOR(dev_conf->dev) + lp + dev_conf->card_number * MAX_CHANNEL);
+#else
+		dev = device_create(pt3video_class,
+					NULL,
+					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
+					"pt3video%u",
+					MINOR(dev_conf->dev) + lp + dev_conf->card_number * MAX_CHANNEL);
+#endif
+		if (dev == NULL) {
+			printk(KERN_ERR "fail device_create.");
+		}
+	}
+
 	pci_set_drvdata(pdev, dev_conf);
 	return 0;
 
@@ -494,20 +529,29 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			dev_conf->kthread = NULL;
 		}
 
-		if (dev_conf->i2c_bus)
-			free_pt3_i2c_bus(dev_conf->i2c_bus);
-
 		for (lp = 0; lp < MAX_TUNER; lp++) {
 			PT3_TUNER *tuner = &dev_conf->tuner[lp];
 
-			if (tuner->tc_s != NULL)
+			if (tuner->tc_s != NULL) {
+				pt3_tc_set_powers(dev_conf->i2c_bus, tuner->tc_s, 0, 0);
 				free_pt3_tc(tuner->tc_s);
-			if (tuner->tc_t != NULL)
+			}
+			if (tuner->tc_t != NULL) {
+				pt3_tc_set_powers(dev_conf->i2c_bus, tuner->tc_t, 0, 0);
 				free_pt3_tc(tuner->tc_t);
+			}
 			if (tuner->qm != NULL)
 				free_pt3_qm(tuner->qm);
 			if (tuner->mx != NULL)
 				free_pt3_mx(tuner->mx);
+		}
+		if (dev_conf->i2c_bus)
+			free_pt3_i2c_bus(dev_conf->i2c_bus);
+
+		for (lp = 0; lp < MAX_CHANNEL; lp++) {
+			cdev_del(&dev_conf->cdev[lp]);
+			device_destroy(pt3video_class,
+						MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)));
 		}
 		
 		unregister_chrdev_region(dev_conf->dev, MAX_CHANNEL);
