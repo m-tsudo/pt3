@@ -82,7 +82,7 @@ dma_build_page_descriptor(PT3_DMA *dma)
 void __iomem *
 get_base_addr(PT3_DMA *dma)
 {
-	return dma->bus->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->tuner_no;
+	return dma->bus->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->tuner_index;
 }
 
 void
@@ -108,12 +108,15 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 	start_addr = dma->desc_info->addr;
 
 	if (enabled) {
+		printk(KERN_DEBUG "enable dma tuner_index=%d", dma->tuner_index);
 		pt3_dma_reset(dma);
-		writel( 1 << 1, base + 0x8);
-		writel(start_addr & 0xFFFF, base + 0x0);
-		writel((start_addr >> 32) & 0xFFFF, base + 0x4);
+		writel( 1 << 1, base + 0x08);
+		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
+		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
+		writel( 1 << 0, base + 0x08);
 	} else {
-		writel(1 << 1, base + 0x8);
+		printk(KERN_DEBUG "disable dma tuner_index=%d", dma->tuner_index);
+		writel(1 << 1, base + 0x08);
 		while (1) {
 			data = readl(base + 0x10);
 			if (!BIT_SHIFT_MASK(data, 0, 1))
@@ -153,6 +156,8 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size)
 			mutex_unlock(&dma->lock);
 			return -EFAULT;
 		}
+		printk(KERN_DEBUG "copy_to_user size=%d ts_pos=%d data_size = %d data_pos=%d",
+				rsize, dma->ts_pos, page->size, page->data_pos);
 		remain -= rsize;
 		page->data_pos += rsize;
 		if (page->data_pos >= page->size) {
@@ -199,12 +204,13 @@ pt3_dma_reset(PT3_DMA *dma)
 		page = &dma->ts_info[i];
 		memset(page->data, 0, page->size);
 		page->data_pos = 0;
+		*page->data = NOT_SYNC_BYTE;
 	}
 	dma->ts_pos = 0;
 }
 
 PT3_DMA *
-create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_no)
+create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 {
 	PT3_DMA *dma;
 	PT3_DMA_PAGE *page;
@@ -218,7 +224,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_no)
 
 	dma->enabled = 0;
 	dma->bus = bus;
-	dma->tuner_no = tuner_no;
+	dma->tuner_index = tuner_index;
 	mutex_init(&dma->lock);
 	
 	dma->ts_count = DMA_TS_BUF_SIZE / (DMA_PAGE_SIZE * BUFF_PER_WRITE);

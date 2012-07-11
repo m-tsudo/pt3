@@ -36,6 +36,7 @@ typedef struct pm_message {
 #include <linux/ioctl.h>
 
 #include	"pt3_com.h"
+#include	"pt3_ioctl.h"
 #include	"pt3_pci.h"
 #include	"pt3_i2c_bus.h"
 #include	"pt3_tc.h"
@@ -122,6 +123,10 @@ struct _PT3_CHANNEL {
 	wait_queue_head_t	wait_q ;
 };
 
+static int real_channel[MAX_CHANNEL] = {0, 2, 1, 3};
+static int channel_type[MAX_CHANNEL] = {PT3_ISDB_S, PT3_ISDB_S,
+										PT3_ISDB_T, PT3_ISDB_T};
+
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
 static struct class	*pt3video_class;
 
@@ -184,6 +189,14 @@ ep4c_init(PT3_DEVICE *dev_conf)
 	dev_conf->system.dma_descriptor_page_size = (val & 0x1F);
 	printk(KERN_DEBUG "dma_descriptor_page_size = %d\n",
 						dev_conf->system.dma_descriptor_page_size);
+
+	return 0;
+}
+
+static STATUS
+get_status(PT3_I2C_BUS *bus, int *val)
+{
+	*val = readl(bus->bar[0].regs + REGS_STATUS);
 
 	return 0;
 }
@@ -315,7 +328,6 @@ static int pt3_open(struct inode *inode, struct file *file)
 	int lp, lp2;
 	PT3_CHANNEL *channel;
 
-	printk(KERN_DEBUG "PT3: try open.");
 	for (lp = 0; lp < MAX_PCI_DEVICE; lp++) {
 		if (device[lp] == NULL) {
 			printk(KERN_DEBUG "device is not exists");
@@ -329,23 +341,25 @@ static int pt3_open(struct inode *inode, struct file *file)
 			mutex_lock(&device[lp]->lock);
 			for (lp2 = 0; lp2 < MAX_CHANNEL; lp2++) {
 				channel = device[lp]->channel[lp2];
-				if (channel->valid) {
+				if (channel->minor == minor) {
+					if (channel->valid) {
+						mutex_unlock(&device[lp]->lock);
+						printk(KERN_DEBUG "device is already used.");
+						return -EIO;
+					}
+					printk(KERN_DEBUG "PT3: selected tuner_no=%d type=%d",
+							channel->tuner->tuner_no, channel->type);
+
+					set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
+					schedule_timeout_interruptible(msecs_to_jiffies(50));
+	
+					channel->valid = 1;
+					file->private_data = channel;
+
 					mutex_unlock(&device[lp]->lock);
-					printk(KERN_DEBUG "device is already used.");
-					return -EIO;
+
+					return 0;
 				}
-
-				set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
-				schedule_timeout_interruptible(msecs_to_jiffies(50));
-				pt3_dma_set_test_mode(channel->dma, 1, 0, 0, 0);
-				pt3_dma_set_enabled(channel->dma, 1);
-
-				channel->valid = 1;
-				file->private_data = channel;
-
-				mutex_unlock(&device[lp]->lock);
-
-				return 0;
 			}
 			mutex_unlock(&device[lp]->lock);
 		}
@@ -388,6 +402,30 @@ static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t 
 
 static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
+	PT3_CHANNEL *channel;
+	int status;
+	unsigned long dummy;
+	void *arg;
+
+	channel = file->private_data;
+	arg = (void *)arg0;
+
+	switch (cmd) {
+	case START_REC:
+		pt3_dma_set_enabled(channel->dma, 1);
+		return 0;
+	case STOP_REC:
+		pt3_dma_set_enabled(channel->dma, 0);
+		return 0;
+	case GET_STATUS:
+		get_status(channel->bus, &status);
+		dummy = copy_to_user(arg, &status, sizeof(int));
+		return 0;
+	case SET_TEST_MODE:
+		pt3_dma_set_test_mode(channel->dma, 1, 0, 0, 0);
+		return 0;
+	}
+
 	return -EINVAL;
 }
 
@@ -572,7 +610,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 			goto out_err_v4l;
 		}
 
-		channel->dma = create_pt3_dma(pdev, dev_conf->i2c_bus, lp & 0x01);
+		channel->dma = create_pt3_dma(pdev, dev_conf->i2c_bus, real_channel[lp]);
 		if (channel->dma == NULL) {
 			printk(KERN_ERR "PT3: fail create dma.");
 			kfree(channel);
@@ -583,7 +621,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		mutex_init(&channel->biglock);
 		channel->minor = MINOR(dev_conf->dev) + lp;
 		channel->tuner = &dev_conf->tuner[lp & 0x01];
-		channel->type = (lp >> 1) ? PT3_ISDB_S : PT3_ISDB_T;
+		channel->type = channel_type[lp];
 		channel->ptr = dev_conf;
 		channel->bus = dev_conf->i2c_bus;
 

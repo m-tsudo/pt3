@@ -1,7 +1,7 @@
 #ifndef		__PT3_COM_H__
 #define		__PT3_COM_H__
 
-#define BIT_SHIFT_MASK(value, shift, mask) (((value) >> (shift)) & ((1<<(mask))-1))
+#define BIT_SHIFT_MASK(value, shift, mask) (((value) >> (shift)) & (((__u64)1<<(mask))-1))
 
 #define		MAX_TUNER			2		//チューナ数
 #define		MAX_CHANNEL			4		// チャネル数

@@ -19,7 +19,7 @@ typedef struct _PT3_DMA_PAGE {
 
 typedef struct __PT3_DMA {
 	PT3_I2C_BUS *bus;
-	int tuner_no;
+	int tuner_index;
 	int enabled;
 	__u32 desc_count;
 	PT3_DMA_PAGE *desc_info;
