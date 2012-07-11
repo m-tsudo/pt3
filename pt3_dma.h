@@ -15,9 +15,9 @@ typedef struct _PT3_DMA_PAGE {
 
 typedef struct __PT3_DMA {
 	__u32 desc_count;
-	PT3_DMA_PAGE *desc;
+	PT3_DMA_PAGE *desc_info;
 	__u32 ts_count;
-	PT3_DMA_PAGE *ts;
+	PT3_DMA_PAGE *ts_info;
 } PT3_DMA;
 
 PT3_DMA * create_pt3_dma(struct pci_dev *hwdev);
