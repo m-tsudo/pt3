@@ -105,7 +105,7 @@ typedef	struct	_pt3_device{
 	struct	cdev	cdev[MAX_CHANNEL];
 	PT3_VERSION		version;
 	PT3_SYSTEM		system;
-	PT3_I2C_BUS		*i2c_bus;
+	PT3_I2C_BUS		*bus;
 	PT3_TUNER       tuner[MAX_TUNER];
 	PT3_CHANNEL		*channel[MAX_CHANNEL];
 } PT3_DEVICE;
@@ -225,10 +225,10 @@ set_tuner_sleep(PT3_I2C_BUS *bus, int isdb, PT3_TUNER *tuner, int sleep)
 
 	switch (isdb) {
 	case PT3_ISDB_S :
-		status = pt3_qm_set_sleep(bus, tuner->tc_s, tuner->qm, sleep);
+		status = pt3_qm_set_sleep(tuner->qm, sleep);
 		break;
 	case PT3_ISDB_T :
-		status = pt3_mx_set_sleep(bus, tuner->tc_t, tuner->mx, sleep);
+		status = pt3_mx_set_sleep(tuner->mx, sleep);
 		break;
 	default :
 		status = STATUS_INVALID_PARAM_ERROR;
@@ -244,11 +244,11 @@ init_tuner(PT3_I2C_BUS *bus, PT3_TUNER *tuner)
 
 	pt3_qm_init_reg_param(tuner->qm);
 
-	pt3_qm_dummy_reset(bus,tuner->tc_s, tuner->qm);
+	pt3_qm_dummy_reset(tuner->qm);
 	pt3_i2c_bus_end(bus);
 	pt3_i2c_bus_run(bus, NULL, 1);
 
-	status = pt3_qm_init(bus,tuner->tc_s, tuner->qm);
+	status = pt3_qm_init(tuner->qm);
 	if (status)
 		return status;
 	pt3_i2c_bus_end(bus);
@@ -262,18 +262,18 @@ tuner_power_on(PT3_DEVICE *dev_conf)
 {
 	int status, i;
 
-	PT3_I2C_BUS *bus = dev_conf->i2c_bus;
+	PT3_I2C_BUS *bus = dev_conf->bus;
 	PT3_TUNER *tuner;
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
-		pt3_tc_init_s(bus, tuner->tc_s);
-		pt3_tc_init_t(bus, tuner->tc_t);
+		pt3_tc_init_s(tuner->tc_s);
+		pt3_tc_init_t(tuner->tc_t);
 		printk(KERN_DEBUG "tc_init %d", i);
 	}
 
 	tuner = &dev_conf->tuner[1];
-	status = pt3_tc_set_powers(bus, tuner->tc_t, 1, 0);
+	status = pt3_tc_set_powers(tuner->tc_t, 1, 0);
 	if (status)
 		return status;
 
@@ -290,7 +290,7 @@ tuner_power_on(PT3_DEVICE *dev_conf)
 	if (status)
 		return status;
 
-	status = pt3_tc_set_powers(bus, tuner->tc_t, 1, 1);
+	status = pt3_tc_set_powers(tuner->tc_t, 1, 1);
 	if (status)
 		return status;
 
@@ -301,7 +301,7 @@ static int
 init_all_tuner(PT3_DEVICE *dev_conf)
 {
 	int status;
-	PT3_I2C_BUS *bus = dev_conf->i2c_bus;
+	PT3_I2C_BUS *bus = dev_conf->bus;
 
 	pt3_i2c_bus_end(bus);
 	bus->inst_addr = PT3_I2C_INST_ADDR0;
@@ -350,7 +350,7 @@ static int pt3_open(struct inode *inode, struct file *file)
 					printk(KERN_DEBUG "PT3: selected tuner_no=%d type=%d",
 							channel->tuner->tuner_no, channel->type);
 
-					set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
+					set_tuner_sleep(channel->bus, channel->type, channel->tuner, 0);
 					schedule_timeout_interruptible(msecs_to_jiffies(50));
 	
 					channel->valid = 1;
@@ -377,7 +377,7 @@ static int pt3_release(struct inode *inode, struct file *file)
 	pt3_dma_set_enabled(channel->dma, 0);
 	mutex_unlock(&channel->ptr->lock);
 
-	set_tuner_sleep(channel->bus, channel->type, channel->tuner, 0);
+	set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
 	schedule_timeout_interruptible(msecs_to_jiffies(50));
 
 	return 0;
@@ -535,9 +535,9 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		goto out_err_fpga;
 	}
 	mutex_init(&dev_conf->lock);
-	dev_conf->i2c_bus = create_pt3_i2c_bus(&dev_conf->bar[0]);
-	if (dev_conf->i2c_bus == NULL) {
-		printk(KERN_ERR "PT3: cannot allocate i2c_bus.");
+	dev_conf->bus = create_pt3_i2c_bus(&dev_conf->bar[0]);
+	if (dev_conf->bus == NULL) {
+		printk(KERN_ERR "PT3: cannot allocate bus.");
 		goto out_err_i2c_bus;
 	}
 	printk(KERN_DEBUG "Allocate PT3_I2C_BUS.");
@@ -554,14 +554,14 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		tc_addr = pt3_tc_address(pin, PT3_ISDB_S, lp);
 		tuner_addr = pt3_qm_address(lp);
 
-		tuner->qm   = create_pt3_qm();
-		tuner->tc_s = create_pt3_tc(tc_addr, tuner_addr);
+		tuner->tc_s = create_pt3_tc(dev_conf->bus, tc_addr, tuner_addr);
+		tuner->qm   = create_pt3_qm(dev_conf->bus, tuner->tc_s);
 
 		tc_addr = pt3_tc_address(pin, PT3_ISDB_T, lp);
 		tuner_addr = pt3_mx_address(lp);
 
-		tuner->mx   = create_pt3_mx();
-		tuner->tc_t = create_pt3_tc(tc_addr, tuner_addr);
+		tuner->tc_t = create_pt3_tc(dev_conf->bus, tc_addr, tuner_addr);
+		tuner->mx   = create_pt3_mx(dev_conf->bus, tuner->tc_t);
 	}
 	printk(KERN_DEBUG "Allocate tuners.");
 
@@ -569,11 +569,11 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 
 	for (lp = 0; lp < MAX_TUNER; lp++) {
 		PT3_TUNER *tuner = &dev_conf->tuner[lp];
-		rc = set_tuner_sleep(dev_conf->i2c_bus, PT3_ISDB_S, tuner, 0);
+		rc = set_tuner_sleep(dev_conf->bus, PT3_ISDB_S, tuner, 0);
 		if (rc)
 			printk(KERN_ERR
 					"failed set_tuner_sleep tuner[%d] PT3_ISDB_S %d", lp, rc);
-		rc = set_tuner_sleep(dev_conf->i2c_bus, PT3_ISDB_T, tuner, 0);
+		rc = set_tuner_sleep(dev_conf->bus, PT3_ISDB_T, tuner, 0);
 		if (rc)
 			printk(KERN_ERR
 					"failed set_tuner_sleep tuner[%d] PT3_ISDB_T %d", lp, rc);
@@ -610,7 +610,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 			goto out_err_v4l;
 		}
 
-		channel->dma = create_pt3_dma(pdev, dev_conf->i2c_bus, real_channel[lp]);
+		channel->dma = create_pt3_dma(pdev, dev_conf->bus, real_channel[lp]);
 		if (channel->dma == NULL) {
 			printk(KERN_ERR "PT3: fail create dma.");
 			kfree(channel);
@@ -623,7 +623,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		channel->tuner = &dev_conf->tuner[lp & 0x01];
 		channel->type = channel_type[lp];
 		channel->ptr = dev_conf;
-		channel->bus = dev_conf->i2c_bus;
+		channel->bus = dev_conf->bus;
 
 		dev_conf->channel[lp] = channel;
 
@@ -667,7 +667,7 @@ out_err_v4l:
 		}
 	}
 out_err_i2c_bus:
-	free_pt3_i2c_bus(dev_conf->i2c_bus);
+	free_pt3_i2c_bus(dev_conf->bus);
 out_err_fpga:
 	iounmap(dev_conf->bar[0].regs);
 	release_mem_region(dev_conf->bar[0].mmio_start, dev_conf->bar[0].mmio_len);
@@ -689,11 +689,11 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			PT3_TUNER *tuner = &dev_conf->tuner[lp];
 
 			if (tuner->tc_s != NULL) {
-				pt3_tc_set_powers(dev_conf->i2c_bus, tuner->tc_s, 0, 0);
+				pt3_tc_set_powers(tuner->tc_s, 0, 0);
 				free_pt3_tc(tuner->tc_s);
 			}
 			if (tuner->tc_t != NULL) {
-				pt3_tc_set_powers(dev_conf->i2c_bus, tuner->tc_t, 0, 0);
+				pt3_tc_set_powers(tuner->tc_t, 0, 0);
 				free_pt3_tc(tuner->tc_t);
 			}
 			if (tuner->qm != NULL)
@@ -701,8 +701,8 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			if (tuner->mx != NULL)
 				free_pt3_mx(tuner->mx);
 		}
-		if (dev_conf->i2c_bus)
-			free_pt3_i2c_bus(dev_conf->i2c_bus);
+		if (dev_conf->bus)
+			free_pt3_i2c_bus(dev_conf->bus);
 
 		for (lp = 0; lp < MAX_CHANNEL; lp++) {
 			if (dev_conf->channel[lp] != NULL) {
