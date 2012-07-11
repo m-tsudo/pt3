@@ -158,14 +158,16 @@ pt3_qm_set_sleep(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm, int sleep)
 {
 	STATUS status;
 	PT3_TS_PIN_MODE mode;
-	PT3_TS_PINS_MODE pins;
+	//PT3_TS_PINS_MODE pins;
 
 	mode = sleep ? PT3_TS_PIN_MODE_LOW : PT3_TS_PIN_MODE_NORMAL;
 	qm->param.standby = sleep;
 
+/*	// 0.96から削除された
 	pins.clock_data = mode;
 	pins.byte = mode;
 	pins.valid = mode;
+*/
 
 	if (sleep) {
 		status = pt3_tc_set_agc_s(bus, tc, PT3_TC_AGC_MANUAL);
@@ -173,9 +175,9 @@ pt3_qm_set_sleep(PT3_I2C_BUS *bus, PT3_TC *tc, PT3_QM *qm, int sleep)
 			return status;
 		qm_set_sleep_mode(bus, tc, qm);
 		pt3_tc_set_sleep_s(bus, tc, sleep);
-		pt3_tc_set_ts_pins_mode_s(bus, tc, &pins);
+		//pt3_tc_set_ts_pins_mode_s(bus, tc, &pins);	// 0.96から削除された
 	} else {
-		pt3_tc_set_ts_pins_mode_s(bus, tc, &pins);
+		//pt3_tc_set_ts_pins_mode_s(bus, tc, &pins);	// 0.96から削除された
 		pt3_tc_set_sleep_s(bus, tc, sleep);
 		qm_set_sleep_mode(bus, tc, qm);
 	}

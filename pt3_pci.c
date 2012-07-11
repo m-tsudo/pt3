@@ -86,6 +86,7 @@ typedef struct _PT3_SYSTEM {
 } PT3_SYSTEM;
 
 typedef struct _PT3_TUNER {
+	int tuner_no;
 	PT3_TC *tc_s;
 	PT3_TC *tc_t;
 	PT3_QM *qm;
@@ -97,12 +98,10 @@ typedef struct _PT3_CHANNEL PT3_CHANNEL;
 typedef	struct	_pt3_device{
 	BAR		bar[2];
 	struct mutex		lock ;
-	struct	task_struct	*kthread;
 	dev_t			dev ;
 	int			card_number;
 	__u32			base_minor ;
 	struct	cdev	cdev[MAX_CHANNEL];
-	wait_queue_head_t	dma_wait_q ;// for poll on reading
 	PT3_VERSION		version;
 	PT3_SYSTEM		system;
 	PT3_I2C_BUS		*i2c_bus;
@@ -316,8 +315,10 @@ static int pt3_open(struct inode *inode, struct file *file)
 	int lp, lp2;
 	PT3_CHANNEL *channel;
 
+	printk(KERN_DEBUG "PT3: try open.");
 	for (lp = 0; lp < MAX_PCI_DEVICE; lp++) {
 		if (device[lp] == NULL) {
+			printk(KERN_DEBUG "device is not exists");
 			return -EIO;
 		}
 
@@ -330,11 +331,14 @@ static int pt3_open(struct inode *inode, struct file *file)
 				channel = device[lp]->channel[lp2];
 				if (channel->valid) {
 					mutex_unlock(&device[lp]->lock);
+					printk(KERN_DEBUG "device is already used.");
 					return -EIO;
 				}
 
 				set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
 				schedule_timeout_interruptible(msecs_to_jiffies(50));
+				pt3_dma_set_test_mode(channel->dma, 1, 0, 0, 0);
+				pt3_dma_set_enabled(channel->dma, 1);
 
 				channel->valid = 1;
 				file->private_data = channel;
@@ -356,7 +360,7 @@ static int pt3_release(struct inode *inode, struct file *file)
 
 	mutex_lock(&channel->ptr->lock);
 	channel->valid = 0;
-	// TODO wait DMA
+	pt3_dma_set_enabled(channel->dma, 0);
 	mutex_unlock(&channel->ptr->lock);
 
 	set_tuner_sleep(channel->bus, channel->type, channel->tuner, 0);
@@ -367,7 +371,19 @@ static int pt3_release(struct inode *inode, struct file *file)
 
 static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t * ppos)
 {
-	return 0;
+	size_t rcnt;
+	PT3_CHANNEL *channel;
+
+	channel = file->private_data;
+
+	rcnt = pt3_dma_copy(channel->dma, buf, cnt);
+	if (rcnt < 0) {
+		printk(KERN_INFO "PT3: fail copy_to_user.");
+		return -EFAULT;
+	}
+	*ppos += rcnt;
+
+	return rcnt;
 }
 
 static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
@@ -488,9 +504,6 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	}
 	printk(KERN_DEBUG "Allocate PT3_I2C_BUS.");
 
-	// 初期化
-	init_waitqueue_head(&dev_conf->dma_wait_q);
-
 	// Tuner
 	for (lp = 0; lp < MAX_TUNER; lp++) {
 		__u8 tc_addr, tuner_addr;
@@ -498,6 +511,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		PT3_TUNER *tuner;
 
 		tuner = &dev_conf->tuner[lp];
+		tuner->tuner_no = lp;
 		pin = 0;
 		tc_addr = pt3_tc_address(pin, PT3_ISDB_S, lp);
 		tuner_addr = pt3_qm_address(lp);
@@ -558,16 +572,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 			goto out_err_v4l;
 		}
 
-#if 0
-		void *p;
-		dma_addr_t addr;
-		p = pci_alloc_consistent(pdev, 4096, &addr);
-		printk(KERN_DEBUG "consistent %p %u", p, addr);
-		pci_free_consistent(pdev, 4096, p, addr);
-		goto out_err_v4l;
-#endif
-
-		channel->dma = create_pt3_dma(pdev);
+		channel->dma = create_pt3_dma(pdev, dev_conf->i2c_bus, lp & 0x01);
 		if (channel->dma == NULL) {
 			printk(KERN_ERR "PT3: fail create dma.");
 			kfree(channel);
@@ -581,6 +586,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		channel->type = (lp >> 1) ? PT3_ISDB_S : PT3_ISDB_T;
 		channel->ptr = dev_conf;
 		channel->bus = dev_conf->i2c_bus;
+
 		dev_conf->channel[lp] = channel;
 
 		init_waitqueue_head(&channel->wait_q);
@@ -631,7 +637,6 @@ out_err_fpga:
 	release_mem_region(dev_conf->bar[1].mmio_start, dev_conf->bar[1].mmio_len);
 out_err_regbase:
 	kfree(dev_conf);
-out_pci_disable_device:
 	return -EIO;
 }
 
@@ -642,11 +647,6 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 	PT3_DEVICE	*dev_conf = (PT3_DEVICE *)pci_get_drvdata(pdev);
 
 	if(dev_conf){
-		if(dev_conf->kthread) {
-			kthread_stop(dev_conf->kthread);
-			dev_conf->kthread = NULL;
-		}
-
 		for (lp = 0; lp < MAX_TUNER; lp++) {
 			PT3_TUNER *tuner = &dev_conf->tuner[lp];
 

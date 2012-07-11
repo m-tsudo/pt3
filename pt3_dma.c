@@ -27,6 +27,7 @@
 #define BUFF_PER_WRITE		32
 #define WRITE_SIZE			(DMA_PAGE_SIZE * 47 * 8)
 #define DMA_TS_BUF_SIZE		(WRITE_SIZE * BUFF_PER_WRITE)
+#define NOT_SYNC_BYTE		0x74
 
 static void
 dma_write_descriptor(__u64 ts_addr, __u32 size, __u64 next_addr, PT3_DMA_DESC *page)
@@ -48,7 +49,7 @@ dma_build_page_descriptor(PT3_DMA *dma)
 	ts_info = dma->ts_info;
 	desc_addr = desc_info->addr;
 	desc_remain = desc_info->size;
-	curr = desc_info->data;
+	curr = (PT3_DMA_DESC *)desc_info->data;
 	prev = NULL;
 	desc_info++;
 	for (i = 0; i < dma->ts_count; i++) {
@@ -57,7 +58,7 @@ dma_build_page_descriptor(PT3_DMA *dma)
 		ts_info++;
 		for (j = 0; j < ts_size / DMA_PAGE_SIZE; j++) {
 			if (desc_remain < 20) {
-				curr = desc_info->data;
+				curr = (PT3_DMA_DESC *)desc_info->data;
 				desc_addr = desc_info->addr;
 				desc_remain = desc_info->size;
 				desc_info++;
@@ -78,8 +79,132 @@ dma_build_page_descriptor(PT3_DMA *dma)
 		prev->next_addr = dma->desc_info->addr | 2;
 }
 
+void __iomem *
+get_base_addr(PT3_DMA *dma)
+{
+	return dma->bus->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->tuner_no;
+}
+
+void
+pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
+{
+	void __iomem *base;
+	__u32 data;
+
+	base = get_base_addr(dma);
+	data = (reset ? 1: 0) << 18 | (not ? 1 : 0) << 17 | (test ? 1 : 0) << 16 | init;
+
+	writel(data, base + 0x0c);
+}
+
+void
+pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
+{
+	void __iomem *base;
+	__u32 data;
+	__u64 start_addr;
+
+	base = get_base_addr(dma);
+	start_addr = dma->desc_info->addr;
+
+	if (enabled) {
+		pt3_dma_reset(dma);
+		writel( 1 << 1, base + 0x8);
+		writel(start_addr & 0xFFFF, base + 0x0);
+		writel((start_addr >> 32) & 0xFFFF, base + 0x4);
+	} else {
+		writel(1 << 1, base + 0x8);
+		while (1) {
+			data = readl(base + 0x10);
+			if (!BIT_SHIFT_MASK(data, 0, 1))
+				break;
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
+		}
+	}
+	dma->enabled = enabled;
+}
+
+ssize_t
+pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size)
+{
+	int ready;
+	PT3_DMA_PAGE *page;
+	size_t rsize, remain;
+	__u8 *p;
+
+	mutex_lock(&dma->lock);
+	remain = size;
+	while (1) {
+		if (remain <= 0)
+			break;
+		/*
+		ready = pt3_dma_ready(dma);
+		if (!ready)
+			break;
+		*/
+
+		page = &dma->ts_info[dma->ts_pos];
+		if ((page->size - page->data_pos) > remain) {
+			rsize = remain;
+		} else {
+			rsize = (page->size - page->data_pos);
+		}
+		if (copy_to_user(buf, page->data, rsize)) {
+			mutex_unlock(&dma->lock);
+			return -EFAULT;
+		}
+		remain -= rsize;
+		page->data_pos += rsize;
+		if (page->data_pos >= page->size) {
+			page->data_pos = 0;
+			p = &page->data[page->data_pos];
+			*p = NOT_SYNC_BYTE;
+			dma->ts_pos++;
+			if (dma->ts_pos >= dma->ts_count)
+				dma->ts_pos = 0;
+		}
+		schedule_timeout_interruptible(msecs_to_jiffies(1));
+	}
+	mutex_unlock(&dma->lock);
+
+	return size - remain;
+}
+
+int
+pt3_dma_ready(PT3_DMA *dma)
+{
+	PT3_DMA_PAGE *page;
+	__u8 *p;
+
+	page = &dma->ts_info[dma->ts_pos];
+	p = &page->data[page->data_pos];
+
+	if (*p == 0x47)
+		return 1;
+	if (*p == NOT_SYNC_BYTE)
+		return 0;
+
+	printk(KERN_DEBUG "sync byte is not 0x47 and also NOT_SYNC_BYTE.");
+
+	return 0;
+}
+
+void
+pt3_dma_reset(PT3_DMA *dma)
+{
+	PT3_DMA_PAGE *page;
+	__u32 i;
+
+	for (i = 0; i < dma->ts_count; i++) {
+		page = &dma->ts_info[i];
+		memset(page->data, 0, page->size);
+		page->data_pos = 0;
+	}
+	dma->ts_pos = 0;
+}
+
 PT3_DMA *
-create_pt3_dma(struct pci_dev *hwdev)
+create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_no)
 {
 	PT3_DMA *dma;
 	PT3_DMA_PAGE *page;
@@ -90,8 +215,13 @@ create_pt3_dma(struct pci_dev *hwdev)
 		printk(KERN_ERR "fail allocate PT3_DMA");
 		goto fail;
 	}
+
+	dma->enabled = 0;
+	dma->bus = bus;
+	dma->tuner_no = tuner_no;
+	mutex_init(&dma->lock);
 	
-	dma->ts_count = DMA_TS_BUF_SIZE / (DMA_PAGE_SIZE * 4);
+	dma->ts_count = DMA_TS_BUF_SIZE / (DMA_PAGE_SIZE * BUFF_PER_WRITE);
 	dma->ts_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->ts_count, GFP_KERNEL);
 	if (dma->ts_info == NULL) {
 		printk(KERN_ERR "fail allocate PT3_DMA_PAGE");
@@ -99,7 +229,7 @@ create_pt3_dma(struct pci_dev *hwdev)
 	}
 	for (i = 0; i < dma->ts_count; i++) {
 		page = &dma->ts_info[i];
-		page->size = DMA_PAGE_SIZE * 4;
+		page->size = DMA_PAGE_SIZE * BUFF_PER_WRITE;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			printk(KERN_ERR "fail allocate consistent. %d", i);
@@ -108,7 +238,7 @@ create_pt3_dma(struct pci_dev *hwdev)
 	}
 	printk(KERN_DEBUG "Allocate TS buffer.");
 
-	dma->desc_count = (DMA_TS_BUF_SIZE / (PAGE_SIZE * 4) + 203) / 204;
+	dma->desc_count = (DMA_TS_BUF_SIZE / (PAGE_SIZE * BUFF_PER_WRITE) + 203) / 204;
 	dma->desc_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->desc_count, GFP_KERNEL);
 	if (dma->desc_info == NULL) {
 		printk(KERN_ERR "fail allocate PT3_DMA_PAGE");
@@ -116,7 +246,7 @@ create_pt3_dma(struct pci_dev *hwdev)
 	}
 	for (i = 0; i < dma->desc_count; i++) {
 		page = &dma->desc_info[i];
-		page->size = DMA_PAGE_SIZE * 4;
+		page->size = DMA_PAGE_SIZE * BUFF_PER_WRITE;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			printk(KERN_ERR "fail allocate consistent. %d", i);
