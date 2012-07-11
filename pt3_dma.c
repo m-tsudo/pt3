@@ -151,7 +151,11 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
 		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
+		printk(KERN_DEBUG "set dma address low %lx",
+				BIT_SHIFT_MASK(start_addr,  0, 32));
 		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
+		printk(KERN_DEBUG "set dma address heigh %lx",
+				BIT_SHIFT_MASK(start_addr, 32, 32));
 		writel( 1 << 0, base + 0x08);
 	} else {
 		printk(KERN_DEBUG "disable dma tuner_index=%d", dma->tuner_index);

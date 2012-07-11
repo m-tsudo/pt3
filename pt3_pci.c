@@ -48,7 +48,7 @@ typedef struct pm_message {
 static char version[] __devinitdata =
 DRV_NAME ".c: " DRV_VERSION " " DRV_RELDATE " \n";
 
-MODULE_AUTHOR("Tomoaki Ishikawa tomy@users.sourceforge.jp and Yoshiki Yazawa yaz@honeyplanet.jp");
+MODULE_AUTHOR("anyone");
 #define	DRIVER_DESC		"PCI earthsoft PT3 driver"
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
@@ -120,7 +120,6 @@ struct _PT3_CHANNEL {
 	PT3_DEVICE		*ptr ;
 	PT3_I2C_BUS		*bus;
 	PT3_DMA			*dma;
-	wait_queue_head_t	wait_q ;
 };
 
 static int real_channel[MAX_CHANNEL] = {0, 2, 1, 3};
@@ -194,13 +193,14 @@ ep4c_init(PT3_DEVICE *dev_conf)
 }
 
 static STATUS
-get_status(PT3_I2C_BUS *bus, int *val)
+get_status(PT3_I2C_BUS *bus, __u32 *val)
 {
 	*val = readl(bus->bar[0].regs + REGS_STATUS);
 
 	return 0;
 }
 
+#if 0
 static int
 get_tuner_status(int isdb, PT3_TUNER *tuner)
 {
@@ -216,6 +216,22 @@ get_tuner_status(int isdb, PT3_TUNER *tuner)
 		break;
 	}
 	return sleep ? 1 : 0;
+}
+#endif
+
+static __u32 LNB_SETTINGS[] = {
+	(1 << 3 | 0 << 1) | (1 << 2 | 0 << 9),	// 0v
+	(1 << 3 | 0 << 1) | (1 << 2 | 1 << 0),	// 12v
+	(1 << 3 | 1 << 1) | (1 << 2 | 1 << 0),	// 15v
+};
+
+static STATUS
+set_lnb(PT3_DEVICE *dev_conf, int lnb)
+{
+	if (lnb < 0 || 2 < lnb)
+		return STATUS_INVALID_PARAM_ERROR;
+	writel(LNB_SETTINGS[lnb], dev_conf->bar[0].regs + REGS_SYSTEM_W);
+	return STATUS_OK;
 }
 
 static int
@@ -377,6 +393,7 @@ static int pt3_release(struct inode *inode, struct file *file)
 	pt3_dma_set_enabled(channel->dma, 0);
 	mutex_unlock(&channel->ptr->lock);
 
+	set_lnb(channel->ptr, 0);
 	set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
 	schedule_timeout_interruptible(msecs_to_jiffies(50));
 
@@ -400,11 +417,30 @@ static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t 
 	return rcnt;
 }
 
+static int
+count_used_bs_tuners(PT3_DEVICE *device)
+{
+	int count, i;
+	count = 0;
+
+	for (i = 0; i < MAX_CHANNEL; i++) {
+		if (device && device->channel[i] &&
+			device->channel[i]->type == PT3_ISDB_S &&
+			device->channel[i]->valid)
+			count++;
+	}
+
+	printk(KERN_INFO "used bs tuners on %p = %d", device, count);
+
+	return count;
+}
+
 static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	PT3_CHANNEL *channel;
-	int status;
+	int status, count, lnb_eff, lnb_usr;
 	unsigned long dummy;
+	char *voltage[] = {"0V", "11V", "15V"};
 	void *arg;
 
 	channel = file->private_data;
@@ -416,6 +452,22 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		return 0;
 	case STOP_REC:
 		pt3_dma_set_enabled(channel->dma, 0);
+		return 0;
+	case LNB_ENABLE:
+		count = count_used_bs_tuners(channel->ptr);
+		if (count <= 1) {
+			lnb_usr = (int)arg0;
+			lnb_eff = lnb_usr ? lnb_usr : lnb;
+			set_lnb(channel->ptr, lnb_eff);
+			printk(KERN_INFO "PT3: LNB on %s", voltage[lnb_eff]);
+		}
+		return 0;
+	case LNB_DISABLE:
+		count = count_used_bs_tuners(channel->ptr);
+		if (count <= 1) {
+			set_lnb(channel->ptr, 0);
+			printk(KERN_INFO "PT3: LNB off");
+		}
 		return 0;
 	case GET_STATUS:
 		get_status(channel->bus, &status);
@@ -626,8 +678,6 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		channel->bus = dev_conf->bus;
 
 		dev_conf->channel[lp] = channel;
-
-		init_waitqueue_head(&channel->wait_q);
 
 		switch (channel->type) {
 		case PT3_ISDB_S :
