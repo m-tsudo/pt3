@@ -270,21 +270,24 @@ init_tuner(PT3_I2C_BUS *bus, PT3_TUNER *tuner)
 	int status;
 
 	pt3_qm_init_reg_param(tuner->qm);
+	{
+		pt3_qm_dummy_reset(tuner->qm);
+		pt3_i2c_bus_end(bus);
+		pt3_i2c_bus_run(bus, NULL, 1);
+	}
 
-	pt3_qm_dummy_reset(tuner->qm);
-	pt3_i2c_bus_end(bus);
-	pt3_i2c_bus_run(bus, NULL, 1);
-
-	status = pt3_qm_init(tuner->qm);
-	if (status)
-		return status;
-	pt3_i2c_bus_end(bus);
-	pt3_i2c_bus_run(bus, NULL, 1);
+	{
+		status = pt3_qm_init(tuner->qm);
+		if (status)
+			return status;
+		pt3_i2c_bus_end(bus);
+		pt3_i2c_bus_run(bus, NULL, 1);
+	}
 
 	return status;
 }
 
-static int
+static STATUS
 tuner_power_on(PT3_DEVICE *dev_conf)
 {
 	int status, i;
@@ -317,6 +320,8 @@ tuner_power_on(PT3_DEVICE *dev_conf)
 		pt3_tc_set_ts_pins_mode_t(tuner->tc_t, &pins);
 	}
 
+	schedule_timeout_interruptible(msecs_to_jiffies(1));	
+
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(bus, &dev_conf->tuner[i]);
 		if (status)
@@ -340,12 +345,12 @@ tuner_power_on(PT3_DEVICE *dev_conf)
 static int
 init_all_tuner(PT3_DEVICE *dev_conf)
 {
-	int status, i, j, channel;
+	STATUS status;
+	int i, j, channel;
 	PT3_I2C_BUS *bus = dev_conf->bus;
 
 	pt3_i2c_bus_end(bus);
 	bus->inst_addr = PT3_I2C_INST_ADDR0;
-	printk(KERN_DEBUG "I2C bus end.");
 
 	if (!pt3_i2c_bus_is_clean(bus)) {
 		printk(KERN_INFO "I2C bus is dirty.");

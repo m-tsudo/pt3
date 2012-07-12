@@ -217,15 +217,6 @@ STATUS
 pt3_mx_set_sleep(PT3_MX *mx, int sleep)
 {
 	STATUS status;
-	PT3_TS_PIN_MODE mode;
-	//PT3_TS_PINS_MODE pins;
-
-	mode = sleep ? PT3_TS_PIN_MODE_LOW : PT3_TS_PIN_MODE_NORMAL;
-	/*
-	pins.clock_data = mode;
-	pins.byte = mode;
-	pins.valid = mode;
-	*/
 
 	if (sleep) {
 		status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_MANUAL);
@@ -233,9 +224,7 @@ pt3_mx_set_sleep(PT3_MX *mx, int sleep)
 			return status;
 		mx_set_sleep_mode(mx, sleep);
 		pt3_tc_write_slptim(mx->tc, sleep);
-		//pt3_tc_set_ts_pins_mode_t(mx->tc, &pins);
 	} else {
-		//pt3_tc_set_ts_pins_mode_t(mx->tc, &pins);
 		pt3_tc_write_slptim(mx->tc, sleep);
 		mx_set_sleep_mode(mx, sleep);
 	}

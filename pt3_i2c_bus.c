@@ -22,13 +22,18 @@
 #include "pt3_i2c_bus.h"
 
 #define MAX_INSTRUCTIONS 4096
+#define DATA_OFFSET 0
 
 typedef struct _PT3_I2C_BUS_PRIV_DATA {
 	__u8 *sbuf;
+	__u32 sbuf_size;
+	__u32 sbuf_pos;
+	struct mutex sbuf_lock;
 	__u8 *rbuf;
-	__u8 *s;
-	__u8 *r;
+	__u32 rbuf_size;
+	__u32 rbuf_pos;
 	__u32 read_addr;
+	struct mutex rbuf_lock;
 	__u8 tmp_inst;
 } PT3_I2C_BUS_PRIV_DATA;
 
@@ -70,8 +75,13 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 		printk(KERN_DEBUG "PT3 : add_instruction %d %p %x",
 						bus->inst_count, priv->s, tmp_inst);
 #endif
-		memcpy(priv->s, &priv->tmp_inst, sizeof(priv->tmp_inst));
-		priv->s += sizeof(priv->tmp_inst);
+		mutex_lock(&priv->sbuf_lock);
+		memcpy(&priv->sbuf[priv->sbuf_pos], &priv->tmp_inst, sizeof(priv->tmp_inst));
+		priv->sbuf_pos++;
+		if (priv->sbuf_pos >= priv->sbuf_size) {
+			priv->sbuf_pos = 0;
+		}
+		mutex_unlock(&priv->sbuf_lock);
 	}
 	bus->inst_count += 1;
 }
@@ -79,15 +89,27 @@ add_instruction(PT3_I2C_BUS *bus, __u32 instruction)
 static __u32
 datan(PT3_I2C_BUS *bus, size_t index, __u32 n)
 {
-	__u32 i, buf;
+	__u32 i, buf, pos;
 	PT3_I2C_BUS_PRIV_DATA *priv;
 	priv = bus->priv;
 
+	mutex_lock(&priv->rbuf_lock);
+
 	buf = 0;
 	for (i = 0; i < n; i++) {
+		pos = priv->rbuf_pos - n + i;
+		if (pos < 0)
+			pos = priv->rbuf_size - pos;
+		else if (priv->rbuf_size <= pos)
+			pos = pos - priv->rbuf_size;
 		buf = buf << 8;
-		buf |= priv->rbuf[index + i];
+		buf |= priv->rbuf[pos];
 	}
+	priv->rbuf_pos += n;
+	if (priv->rbuf_pos >= priv->rbuf_size)
+		priv->rbuf_pos = priv->rbuf_pos - priv->rbuf_size;
+
+	mutex_unlock(&priv->rbuf_lock);
 
 	return buf;
 }
@@ -191,14 +213,14 @@ wait(PT3_I2C_BUS *bus, __u32 *data)
 		*data = val;
 }
 
-static int
+static STATUS
 run_code(PT3_I2C_BUS *bus, __u32 start_addr, __u32 *ack)
 {
 	__u32 data;
 
 	wait(bus, &data);
 
-	writel(1 << 16 | start_addr, bus->bar[0].regs + REGS_I2C_W);
+	writel(1 << 16 | (start_addr + 4096), bus->bar[0].regs + REGS_I2C_W);
 
 	wait(bus, &data);
 
@@ -206,34 +228,59 @@ run_code(PT3_I2C_BUS *bus, __u32 start_addr, __u32 *ack)
 	if (ack != NULL)
 		*ack = data;
 
-	return data ? -1 : 0;
+	return data ? STATUS_I2C_ERROR : STATUS_OK;
+}
+
+static void
+i2c_bus_push_read_data(PT3_I2C_BUS *bus)
+{
+	PT3_I2C_BUS_PRIV_DATA *priv;
+	__u32 rsize, i;
+	__u8 *src;
+
+	priv = bus->priv;
+
+	mutex_lock(&priv->rbuf_lock);
+
+	rsize = priv->read_addr;
+	src = bus->bar[1].regs + DATA_OFFSET;
+	for (i = 0; i < rsize; i++) {
+		priv->rbuf[priv->rbuf_pos] = readb(src + i);
+		priv->rbuf_pos++;
+		if (priv->rbuf_pos >= priv->rbuf_size)
+			priv->rbuf_pos = 0;
+	}
+	mutex_unlock(&priv->rbuf_lock);
 }
 
 void
 pt3_i2c_bus_copy(PT3_I2C_BUS *bus)
 {
-	__u8 *src;
 	__u8 *dst;
 	PT3_I2C_BUS_PRIV_DATA *priv;
 	priv = bus->priv;
 
-	src = priv->sbuf;
 	dst = bus->bar[1].regs + (bus->inst_addr / 2);
-#if 0
+
+	if (bus->inst_addr / 2 > 2048) {
+		printk(KERN_ERR "PT3 : i2c bus copy address is invalid.");
+		return;
+	}
+#if 1
 	printk(KERN_DEBUG "PT3 : i2c_bus_copy. base=%p dst=%p src=%p size=%d",
-						bus->bar[1].regs, dst, src, bus->inst_count / 2);
+						bus->bar[1].regs, dst, priv->sbuf, priv->sbuf_pos);
 #endif
-	memcpy(dst, src, bus->inst_count / 2);
-	priv->s = priv->sbuf;
+	mutex_lock(&priv->sbuf_lock);
+	memcpy(dst, priv->sbuf, priv->sbuf_pos);
+	priv->sbuf_pos = 0;
 	bus->inst_count = 0;
+	mutex_unlock(&priv->sbuf_lock);
 }
 
-int
+STATUS
 pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy)
 {
-	int ret;
-	__u32 rsize;
-	__u8 *src;
+	STATUS status;
 	PT3_I2C_BUS_PRIV_DATA *priv;
 	priv = bus->priv;
 
@@ -243,16 +290,13 @@ pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy)
 		pt3_i2c_bus_copy(bus);
 	}
 
-	ret = run_code(bus, bus->inst_addr, ack);
+	status = run_code(bus, bus->inst_addr, ack);
 
-	rsize = priv->read_addr;
-	src = bus->bar[1].regs;
-	memcpy(priv->r, src, rsize);
-	priv->r += rsize;
+	i2c_bus_push_read_data(bus);
 
 	mutex_unlock(&bus->lock);
 
-	return ret;
+	return status;
 }
 
 int
@@ -292,21 +336,26 @@ create_pt3_i2c_bus(BAR *bar)
 	priv = vzalloc(sizeof(PT3_I2C_BUS_PRIV_DATA));
 	if (priv == NULL)
 		goto fail;
+	
+	priv->sbuf_size = MAX_INSTRUCTIONS;
+	priv->sbuf_pos = 0;
+	priv->rbuf_size = MAX_INSTRUCTIONS * 4;
+	priv->rbuf_pos = 0;
 
-	sbuf = vzalloc(MAX_INSTRUCTIONS);
+	sbuf = vzalloc(priv->sbuf_size);
 	if (sbuf == NULL)
 		goto fail;
 
-	rbuf = vzalloc(MAX_INSTRUCTIONS);
+	rbuf = vzalloc(priv->rbuf_size);
 	if (rbuf == NULL)
 		goto fail;
 
 	mutex_init(&bus->lock);
+	mutex_init(&priv->sbuf_lock);
+	mutex_init(&priv->rbuf_lock);
 	bus->bar = bar;
 	priv->sbuf = sbuf;
 	priv->rbuf = rbuf;
-	priv->s = sbuf;
-	priv->r = rbuf;
 	priv->read_addr = 0;
 	bus->priv = priv;
 
@@ -330,12 +379,15 @@ free_pt3_i2c_bus(PT3_I2C_BUS *bus)
 	priv = bus->priv;
 
 	if (priv != NULL) {
+		mutex_unlock(&priv->sbuf_lock);
+		mutex_unlock(&priv->rbuf_lock);
 		if (priv->sbuf != NULL)
 			vfree(priv->sbuf);
 		if (priv->rbuf != NULL)
 			vfree(priv->rbuf);
 		vfree(priv);
 	}
+	mutex_unlock(&bus->lock);
 
 	vfree(bus);
 }

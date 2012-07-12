@@ -29,7 +29,7 @@ pt3_tc_address(__u32 pin, int isdb, __u32 index)
 	return (__u8)(1 << 4 | pin << 2 | index << 1 | isdb2);
 }
 
-int
+STATUS
 pt3_tc_write(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size)
 {
 	__u8 buf;
@@ -65,10 +65,10 @@ pt3_tc_write_tuner_without_addr(PT3_TC *tc, const __u8 *data, __u32 size)
 	return pt3_i2c_bus_run(tc->bus, NULL, 1);
 }
 
-int
+STATUS
 pt3_tc_read_tuner(PT3_TC *tc, __u8 addr, __u8 *data, __u32 size)
 {
-	int status;
+	STATUS status;
 	__u8 buf;
 	__u32 i;
 	size_t rindex;
@@ -104,7 +104,7 @@ pt3_tc_read_tuner(PT3_TC *tc, __u8 addr, __u8 *data, __u32 size)
 	return status;
 }
 
-int
+STATUS
 pt3_tc_write_tuner(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size)
 {
 	__u8 buf;
@@ -125,7 +125,7 @@ pt3_tc_write_tuner(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size)
 
 /* TC_S */
 
-static int
+static STATUS
 write_pskmsrst(PT3_TC *tc)
 {
 	__u8 buf;
@@ -134,19 +134,26 @@ write_pskmsrst(PT3_TC *tc)
 	return pt3_tc_write(tc, 0x03, &buf, 1);
 }
 
-int
+STATUS
 pt3_tc_init_s(PT3_TC *tc)
 {
+	STATUS status;
 	__u8 buf;
 
-	write_pskmsrst(tc);
+	status = write_pskmsrst(tc);
+	if (status)
+		return status;
 	buf = 0x10;
-	return pt3_tc_write(tc, 0x1e, &buf, 1);
+	status = pt3_tc_write(tc, 0x1e, &buf, 1);
+	if (status)
+		return status;
+	
+	return status;
 }
 
 /* TC_T */
 
-static int
+static STATUS
 write_imsrst(PT3_TC *tc)
 {
 	__u8 buf;
@@ -155,20 +162,27 @@ write_imsrst(PT3_TC *tc)
 	return pt3_tc_write(tc, 0x01, &buf, 1);
 }
 
-int
+STATUS
 pt3_tc_init_t(PT3_TC *tc)
 {
+	STATUS status;
 	__u8 buf;
 
-	write_imsrst(tc);
+	status = write_imsrst(tc);
+	if (status)
+		return status;
 	buf = 0x10;
-	return pt3_tc_write(tc, 0x1c, &buf, 1);
+	status = pt3_tc_write(tc, 0x1c, &buf, 1);
+	if (status)
+		return status;
+
+	return status;
 }
 
-int
+STATUS
 pt3_tc_set_powers(PT3_TC *tc, int tuner, int amp)
 {
-	int status;
+	STATUS status;
 	__u8 tuner_power = tuner ? 0x03 : 0x02;
 	__u8 amp_power = amp ? 0x03 : 0x02;
 

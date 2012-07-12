@@ -19,13 +19,13 @@ typedef enum {
 } PT3_TC_AGC;
 
 __u8 pt3_tc_address(__u32 pin, int isdb, __u32 index);
-int pt3_tc_write(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
-int pt3_tc_read_tuner(PT3_TC *tc, __u8 addr, __u8 *data, __u32 size);
-int pt3_tc_write_tuner(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
+STATUS pt3_tc_write(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
+STATUS pt3_tc_read_tuner(PT3_TC *tc, __u8 addr, __u8 *data, __u32 size);
+STATUS pt3_tc_write_tuner(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size);
 STATUS pt3_tc_write_tuner_without_addr(PT3_TC *tc, const __u8 *data, __u32 size);
-int pt3_tc_init_s(PT3_TC *tc);
-int pt3_tc_init_t(PT3_TC *tc);
-int pt3_tc_set_powers(PT3_TC *tc, int tuner, int amp);
+STATUS pt3_tc_init_s(PT3_TC *tc);
+STATUS pt3_tc_init_t(PT3_TC *tc);
+STATUS pt3_tc_set_powers(PT3_TC *tc, int tuner, int amp);
 __u32 pt3_tc_index(PT3_TC *tc);
 STATUS pt3_tc_write_slptim(PT3_TC *tc, int sleep);
 STATUS pt3_tc_set_agc_s(PT3_TC *tc, PT3_TC_AGC agc);

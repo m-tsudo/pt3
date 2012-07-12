@@ -185,11 +185,9 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size)
 	while (1) {
 		if (remain <= 0)
 			break;
-		/*
 		ready = pt3_dma_ready(dma);
 		if (!ready)
 			break;
-		*/
 
 		page = &dma->ts_info[dma->ts_pos];
 		if ((page->size - page->data_pos) > remain) {

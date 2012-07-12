@@ -4,8 +4,8 @@
 #include <linux/mutex.h>
 #include "pt3_pci.h"
 
-#define PT3_I2C_INST_ADDR0 (4096)
-#define PT3_I2C_INST_ADDR1 (4096 + 2042)
+#define PT3_I2C_INST_ADDR0 4096 + 0
+#define PT3_I2C_INST_ADDR1 4096 + 2048
 
 typedef struct _PT3_I2C_BUS {
 	BAR *bar;
@@ -23,7 +23,7 @@ __u8 pt3_i2c_bus_data1(PT3_I2C_BUS *bus, size_t index);
 void pt3_i2c_bus_end(PT3_I2C_BUS *bus);
 void pt3_i2c_bus_sleep(PT3_I2C_BUS *bus, __u32 ms);
 void pt3_i2c_bus_copy(PT3_I2C_BUS *bus);
-int pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy);
+STATUS pt3_i2c_bus_run(PT3_I2C_BUS *bus, __u32 *ack, int copy);
 int pt3_i2c_bus_is_clean(PT3_I2C_BUS *bus);
 void pt3_i2c_bus_reset(PT3_I2C_BUS *bus);
 
