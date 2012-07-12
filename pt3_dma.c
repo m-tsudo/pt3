@@ -19,7 +19,8 @@
 
 #include "pt3_com.h"
 #include "pt3_pci.h"
-#include "pt3_i2c_bus.h"
+#include "pt3_i2c.h"
+#include "pt3_bus.h"
 #include "pt3_dma.h"
 
 #define DMA_PAGE_SIZE			4096
@@ -117,7 +118,7 @@ dma_check_page_descriptor(PT3_DMA *dma)
 void __iomem *
 get_base_addr(PT3_DMA *dma)
 {
-	return dma->bus->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->tuner_index;
+	return dma->i2c->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->tuner_index;
 }
 
 void
@@ -131,7 +132,7 @@ pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
 
 #if 0
 	printk(KERN_DEBUG "set_test_mode base=%p offset=0x%02x data=0x%04d",
-			base, base - dma->bus->bar[0].regs, data);
+			base, base - dma->i2c->bar[0].regs, data);
 #endif
 
 	writel(data, base + 0x0c);
@@ -149,7 +150,7 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 
 	if (enabled) {
 		printk(KERN_DEBUG "enable dma tuner_index=%d start_addr=%llu offset=%d",
-				dma->tuner_index, start_addr, base - dma->bus->bar[0].regs);
+				dma->tuner_index, start_addr, base - dma->i2c->bar[0].regs);
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
 		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
@@ -269,7 +270,7 @@ pt3_dma_get_status(PT3_DMA *dma)
 
 
 PT3_DMA *
-create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
+create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_index)
 {
 	PT3_DMA *dma;
 	PT3_DMA_PAGE *page;
@@ -282,7 +283,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 	}
 
 	dma->enabled = 0;
-	dma->bus = bus;
+	dma->i2c = i2c;
 	dma->tuner_index = tuner_index;
 	mutex_init(&dma->lock);
 	

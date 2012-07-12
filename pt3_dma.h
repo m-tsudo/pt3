@@ -2,7 +2,8 @@
 #define _H_PT3_DMA
 
 #include "pt3_com.h"
-#include "pt3_i2c_bus.h"
+#include "pt3_bus.h"
+#include "pt3_i2c.h"
 
 typedef struct _PT3_DMA_DESC {
 	__u64 page_addr;
@@ -18,7 +19,7 @@ typedef struct _PT3_DMA_PAGE {
 } PT3_DMA_PAGE;
 
 typedef struct __PT3_DMA {
-	PT3_I2C_BUS *bus;
+	PT3_I2C *i2c;
 	int tuner_index;
 	int enabled;
 	__u32 desc_count;
@@ -35,7 +36,7 @@ ssize_t pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size);
 int pt3_dma_ready(PT3_DMA *dma);
 void pt3_dma_reset(PT3_DMA *dma);
 __u32 pt3_dma_get_status(PT3_DMA *dma);
-PT3_DMA * create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_no);
+PT3_DMA * create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_no);
 void free_pt3_dma(struct pci_dev *hwdev, PT3_DMA *dma);
 
 #endif

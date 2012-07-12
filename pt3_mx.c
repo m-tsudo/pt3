@@ -53,9 +53,9 @@ static SHF_TYPE SHF_DVBT_TAB[] = {
 static __u8 mx_address[MAX_TUNER] = { 0x62, 0x61 };
 
 static void
-mx_write(PT3_MX *mx, __u8 *data, size_t size)
+mx_write(PT3_MX *mx, PT3_BUS *bus, __u8 *data, size_t size)
 {
-	pt3_tc_write_tuner_without_addr(mx->tc, data, size);
+	pt3_tc_write_tuner_without_addr(mx->tc, bus, data, size);
 }
 
 static void
@@ -114,18 +114,18 @@ mx_rftune(__u8 *data, __u32 *size, __u32 freq)
 }
 
 static void
-mx_set_register(PT3_MX *mx, __u8 addr, __u8 value)
+mx_set_register(PT3_MX *mx, PT3_BUS *bus, __u8 addr, __u8 value)
 {
 	__u8 data[2];
 
 	data[0] = addr;
 	data[1] = value;
 	
-	mx_write(mx, data, sizeof(data));
+	mx_write(mx, bus, data, sizeof(data));
 }
 
 static void
-mx_idac_setting(PT3_MX *mx)
+mx_idac_setting(PT3_MX *mx, PT3_BUS *bus)
 {
 	__u8 data[] = {
 		0x0D, 0x00,
@@ -138,11 +138,11 @@ mx_idac_setting(PT3_MX *mx)
 		0x70, 0x10+12,
 	};
 
-	mx_write(mx, data, sizeof(data));
+	mx_write(mx, bus, data, sizeof(data));
 }
 
 static void
-mx_tuner_rftune(PT3_MX *mx, __u32 freq)
+mx_tuner_rftune(PT3_MX *mx, PT3_BUS *bus, __u32 freq)
 {
 	__u8 data[100];
 	__u32 size;
@@ -152,22 +152,22 @@ mx_tuner_rftune(PT3_MX *mx, __u32 freq)
 
 	mx_rftune(data, &size, freq);
 
-	mx_write(mx, data, 14);
+	mx_write(mx, bus, data, 14);
 
 	schedule_timeout_interruptible(msecs_to_jiffies(1));	
 
-	mx_write(mx, data + 14, 6);
+	mx_write(mx, bus, data + 14, 6);
 
 	schedule_timeout_interruptible(msecs_to_jiffies(1));	
 	schedule_timeout_interruptible(msecs_to_jiffies(30));	
 
-	mx_set_register(mx, 0x1a, 0x0d);
+	mx_set_register(mx, bus, 0x1a, 0x0d);
 
-	mx_idac_setting(mx);
+	mx_idac_setting(mx, bus);
 }
 
 static void
-mx_standby(PT3_MX *mx)
+mx_standby(PT3_MX *mx, PT3_BUS *bus)
 {
 	__u8 data[4];
 
@@ -176,32 +176,32 @@ mx_standby(PT3_MX *mx)
 	data[2] = 0x13;
 	data[3] = 0x00;
 
-	mx_write(mx, data, sizeof(data));
+	mx_write(mx, bus, data, sizeof(data));
 }
 
 static void
-mx_wakeup(PT3_MX *mx)
+mx_wakeup(PT3_MX *mx, PT3_BUS *bus)
 {
 	__u8 data[2];
 
 	data[0] = 0x01;
 	data[1] = 0x01;
 
-	mx_write(mx, data, sizeof(data));
+	mx_write(mx, bus, data, sizeof(data));
 
-	mx_tuner_rftune(mx, mx->freq);
+	mx_tuner_rftune(mx, bus, mx->freq);
 }
 
 static STATUS
-mx_set_sleep_mode(PT3_MX *mx, int sleep)
+mx_set_sleep_mode(PT3_MX *mx, PT3_BUS *bus, int sleep)
 {
 	STATUS status;
 	status = 0;
 
 	if (sleep) {
-		mx_standby(mx);
+		mx_standby(mx, bus);
 	} else {
-		mx_wakeup(mx);
+		mx_wakeup(mx, bus);
 	}
 
 	return status;
@@ -219,14 +219,14 @@ pt3_mx_set_sleep(PT3_MX *mx, int sleep)
 	STATUS status;
 
 	if (sleep) {
-		status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_MANUAL);
+		status = pt3_tc_set_agc_t(mx->tc, NULL, PT3_TC_AGC_MANUAL);
 		if (status)
 			return status;
-		mx_set_sleep_mode(mx, sleep);
-		pt3_tc_write_slptim(mx->tc, sleep);
+		mx_set_sleep_mode(mx, NULL, sleep);
+		pt3_tc_write_slptim(mx->tc, NULL, sleep);
 	} else {
-		pt3_tc_write_slptim(mx->tc, sleep);
-		mx_set_sleep_mode(mx, sleep);
+		pt3_tc_write_slptim(mx->tc, NULL, sleep);
+		mx_set_sleep_mode(mx, NULL, sleep);
 	}
 	
 	mx->sleep = sleep;
@@ -280,7 +280,7 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 }
 
 PT3_MX *
-create_pt3_mx(PT3_I2C_BUS *bus, PT3_TC *tc)
+create_pt3_mx(PT3_I2C *i2c, PT3_TC *tc)
 {
 	PT3_MX *mx;
 
@@ -290,7 +290,7 @@ create_pt3_mx(PT3_I2C_BUS *bus, PT3_TC *tc)
 	if (mx == NULL)
 		goto fail;
 
-	mx->bus = bus;
+	mx->i2c = i2c;
 	mx->tc = tc;
 	mx->sleep = 1;
 	

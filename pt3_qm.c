@@ -65,20 +65,20 @@ static __u8 flag[0x20] = {
 };
 
 static STATUS
-qm_write(PT3_QM *qm, __u8 addr, __u8 data)
+qm_write(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 data)
 {
 	STATUS ret;
-	ret = pt3_tc_write_tuner(qm->tc, addr, &data, sizeof(data));
+	ret = pt3_tc_write_tuner(qm->tc, bus, addr, &data, sizeof(data));
 	qm->reg[addr] = data;
 	return ret;
 }
 
 static int
-qm_read(PT3_QM *qm, __u8 addr, __u8 *data)
+qm_read(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 *data)
 {
 	int status;
 	if ((addr = 0x00 ) || (addr == 0x0d))
-		status = pt3_tc_read_tuner(qm->tc, addr, data, 1);
+		status = pt3_tc_read_tuner(qm->tc, bus, addr, data, 1);
 	else 
 		status = 0;
 
@@ -86,16 +86,16 @@ qm_read(PT3_QM *qm, __u8 addr, __u8 *data)
 }
 
 static void
-qm_sleep(PT3_QM *qm, __u32 ms)
+qm_sleep(PT3_QM *qm, PT3_BUS *bus, __u32 ms)
 {
-	if (qm->bus)
-		pt3_i2c_bus_sleep(qm->bus, ms);
+	if (bus)
+		pt3_bus_sleep(bus, ms);
 	else 
 		schedule_timeout_interruptible(msecs_to_jiffies(ms));	
 }
 
 static int
-qm_set_sleep_mode(PT3_QM *qm)
+qm_set_sleep_mode(PT3_QM *qm, PT3_BUS *bus)
 {
 	int status;
 	PT3_QM_PARAM *param;
@@ -107,10 +107,10 @@ qm_set_sleep_mode(PT3_QM *qm)
 		qm->reg[0x01] |= 1 << 0;
 		qm->reg[0x05] |= 1 << 3;
 
-		status = qm_write(qm, 0x05, qm->reg[0x05]);
+		status = qm_write(qm, bus, 0x05, qm->reg[0x05]);
 		if (status)
 			return status;
-		status = qm_write(qm, 0x01, qm->reg[0x01]);
+		status = qm_write(qm, bus, 0x01, qm->reg[0x01]);
 		if (status)
 			return status;
 	} else {
@@ -118,10 +118,10 @@ qm_set_sleep_mode(PT3_QM *qm)
 		qm->reg[0x01] &= (~(1 << 0)) & 0xff;
 		qm->reg[0x05] &= (~(1 << 3)) & 0xff;
 
-		status = qm_write(qm, 0x01, qm->reg[0x01]);
+		status = qm_write(qm, bus, 0x01, qm->reg[0x01]);
 		if (status)
 			return status;
-		status = qm_write(qm, 0x05, qm->reg[0x05]);
+		status = qm_write(qm, bus, 0x05, qm->reg[0x05]);
 		if (status)
 			return status;
 	}
@@ -130,7 +130,7 @@ qm_set_sleep_mode(PT3_QM *qm)
 }
 
 static int
-qm_set_search_mode(PT3_QM *qm)
+qm_set_search_mode(PT3_QM *qm, PT3_BUS *bus)
 {
 	int status;
 	PT3_QM_PARAM *param;
@@ -139,12 +139,12 @@ qm_set_search_mode(PT3_QM *qm)
 
 	if (param->fast_search_mode) {
 		qm->reg[0x03] |= 0x01;
-		status = qm_write(qm, 0x03, qm->reg[0x03]);
+		status = qm_write(qm, bus, 0x03, qm->reg[0x03]);
 		if (status)
 			return status;
 	} else {
 		qm->reg[0x03] |= 0xfe;
-		status = qm_write(qm, 0x03, qm->reg[0x03]);
+		status = qm_write(qm, bus, 0x03, qm->reg[0x03]);
 		if (status)
 			return status;
 	}
@@ -165,7 +165,7 @@ static __u32 FREQ_TABLE[9][3] = {
 };
 
 static STATUS
-qm_tuning(PT3_QM *qm, __u32 *sd)
+qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
 {
 	STATUS status;
 #if 0
@@ -219,7 +219,7 @@ qm_tuning(PT3_QM *qm, __u32 *sd)
 }
 
 static STATUS
-qm_local_lpf_tuning(PT3_QM *qm, int lpf)
+qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf)
 {
 	PT3_QM_PARAM *param = &qm->param;
 	__u8 i_data;
@@ -227,16 +227,16 @@ qm_local_lpf_tuning(PT3_QM *qm, int lpf)
 	STATUS status;
 
 	sd = 0;
-	status = qm_tuning(qm, &sd);
+	status = qm_tuning(qm, NULL, &sd);
 	if (status)
 		return status;
 
 	if (lpf) {
 		i_data = qm->reg[0x08] & 0xf0;
 		i_data |= 2;
-		status = qm_write(qm, 0x08, i_data);
+		status = qm_write(qm, bus, 0x08, i_data);
 	} else {
-		status = qm_write(qm, 0x08, qm->reg[0x08]);
+		status = qm_write(qm, bus, 0x08, qm->reg[0x08]);
 	}
 	if (status)
 		return status;
@@ -245,18 +245,18 @@ qm_local_lpf_tuning(PT3_QM *qm, int lpf)
 	qm->reg[0x09] |= (sd >> 16) & 0x3f;
 	qm->reg[0x0a] = (__u8)(sd >> 8);
 	qm->reg[0x0b] = (__u8)(sd >> 0);
-	status = qm_write(qm, 0x09, qm->reg[0x09]);
+	status = qm_write(qm, bus, 0x09, qm->reg[0x09]);
 	if (status)
 		return status;
-	status = qm_write(qm, 0x0a, qm->reg[0x0a]);
+	status = qm_write(qm, bus, 0x0a, qm->reg[0x0a]);
 	if (status)
 		return status;
-	status = qm_write(qm, 0x0b, qm->reg[0x0b]);
+	status = qm_write(qm, bus, 0x0b, qm->reg[0x0b]);
 	if (status)
 		return status;
 
 	if (!lpf) {
-		status = qm_write(qm, 0x13, qm->reg[0x13]);
+		status = qm_write(qm, bus, 0x13, qm->reg[0x13]);
 		if (status)
 			return status;
 	}
@@ -264,46 +264,46 @@ qm_local_lpf_tuning(PT3_QM *qm, int lpf)
 	if (lpf) {
 		i_data = qm->reg[0x0c];
 		i_data &= 0x3f;
-		status = qm_write(qm, 0x0c, i_data);
+		status = qm_write(qm, bus, 0x0c, i_data);
 		if (status)
 			return status;
-		qm_sleep(qm, 1);
+		qm_sleep(qm, bus, 1);
 
 		i_data = qm->reg[0x0c];
 		i_data |= 0xc0;
-		status = qm_write(qm, 0x0c, i_data);
+		status = qm_write(qm, bus, 0x0c, i_data);
 		if (status)
 			return status;
 	} else {
 		i_data = qm->reg[0x0c];
 		i_data &= 0x7f;
-		status = qm_write(qm, 0x0c, i_data);
+		status = qm_write(qm, bus, 0x0c, i_data);
 		if (status)
 			return status;
-		qm_sleep(qm, 1);
+		qm_sleep(qm, bus, 1);
 
 		i_data = qm->reg[0x0c];
 		i_data |= 0x80;
-		status = qm_write(qm, 0x0c, i_data);
+		status = qm_write(qm, bus, 0x0c, i_data);
 		if (status)
 			return status;
 	}
 
 	if (lpf) {
-		qm_sleep(qm, param->lpf_wait_time);
+		qm_sleep(qm, bus, param->lpf_wait_time);
 	} else {
 		if (qm->reg[0x03] & 0x01) {
-			qm_sleep(qm, param->fast_search_wait_time);
+			qm_sleep(qm, bus, param->fast_search_wait_time);
 		} else {
-			qm_sleep(qm, param->normal_search_wait_time);
+			qm_sleep(qm, bus, param->normal_search_wait_time);
 		}
 	}
 
 	if (lpf) {
-		status = qm_write(qm, 0x08, 0x09);
+		status = qm_write(qm, bus, 0x08, 0x09);
 		if (status)
 			return status;
-		status = qm_write(qm, 0x13, qm->reg[0x13]);
+		status = qm_write(qm, bus, 0x13, qm->reg[0x13]);
 		if (status)
 			return status;
 	}
@@ -336,16 +336,16 @@ pt3_qm_set_sleep(PT3_QM *qm, int sleep)
 */
 
 	if (sleep) {
-		status = pt3_tc_set_agc_s(qm->tc, PT3_TC_AGC_MANUAL);
+		status = pt3_tc_set_agc_s(qm->tc, NULL, PT3_TC_AGC_MANUAL);
 		if (status)
 			return status;
-		qm_set_sleep_mode(qm);
-		pt3_tc_set_sleep_s(qm->tc, sleep);
+		qm_set_sleep_mode(qm, NULL);
+		pt3_tc_set_sleep_s(qm->tc, NULL, sleep);
 		//pt3_tc_set_ts_pins_mode_s(qm->tc, &pins);	// 0.96から削除された
 	} else {
 		//pt3_tc_set_ts_pins_mode_s(qm->tc, &pins);	// 0.96から削除された
-		pt3_tc_set_sleep_s(qm->tc, sleep);
-		qm_set_sleep_mode(qm);
+		pt3_tc_set_sleep_s(qm->tc, NULL, sleep);
+		qm_set_sleep_mode(qm, NULL);
 	}
 
 	qm->sleep = sleep;
@@ -354,10 +354,10 @@ pt3_qm_set_sleep(PT3_QM *qm, int sleep)
 }
 
 void
-pt3_qm_dummy_reset(PT3_QM *qm)
+pt3_qm_dummy_reset(PT3_QM *qm, PT3_BUS *bus)
 {
-	qm_write(qm, 0x01, INIT_DUMMY_RESET);
-	qm_write(qm, 0x01, INIT_DUMMY_RESET);
+	qm_write(qm, bus, 0x01, INIT_DUMMY_RESET);
+	qm_write(qm, bus, 0x01, INIT_DUMMY_RESET);
 }
 
 void
@@ -375,55 +375,55 @@ pt3_qm_init_reg_param(PT3_QM *qm)
 }
 
 int
-pt3_qm_init(PT3_QM *qm)
+pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 {
 	__u8 i_data;
 	__u32 i;
 	int status;
-	status = qm_write(qm, 0x01, INIT_DUMMY_RESET);
+	status = qm_write(qm, bus, 0x01, INIT_DUMMY_RESET);
 	if (status)
 		return status;
 	printk(KERN_DEBUG "qm_init dummy_reset");
 
-	qm_sleep(qm, 1);
+	qm_sleep(qm, bus, 1);
 
 	i_data = qm->reg[0x01];
 	i_data |= 0x10;
-	status = qm_write(qm, 0x01, i_data);
+	status = qm_write(qm, bus, 0x01, i_data);
 	if (status)
 		return status;
 	
 	// ID check
-	status = qm_read(qm, 0x00, &i_data);
+	status = qm_read(qm, bus, 0x00, &i_data);
 	if (status)
 		return status;
 
-	if ((qm->bus == NULL) && (i_data != 0x48))
-		return -1;
+	if ((bus == NULL) && (i_data != 0x48))
+		return STATUS_INVALID_PARAM_ERROR;
 
 	// LPF tuning on
-	qm_sleep(qm, 1);
+	qm_sleep(qm, bus, 1);
 	qm->reg[0xc] |= 0x40;
-	status = qm_write(qm, 0x0c, qm->reg[0x0c]);
+	status = qm_write(qm, bus, 0x0c, qm->reg[0x0c]);
 	if (status)
 		return status;
-	qm_sleep(qm, qm->param.lpf_wait_time);
+	qm_sleep(qm, bus, qm->param.lpf_wait_time);
 
 	for (i = 0; i < 0x20; i++) {
 		if (flag[i] == 1) {
-			status = qm_write(qm, i, qm->reg[i]);
+			status = qm_write(qm, bus, i, qm->reg[i]);
 			if (status)
 				return status;
 		}
 	}
 	printk(KERN_DEBUG "qm_init LPF turning on");
 
-	status = qm_set_sleep_mode(qm);
+	status = qm_set_sleep_mode(qm, bus);
 	if (status)
 		return status;
 	printk(KERN_DEBUG "qm_init set_sleep_mode");
 
-	status = qm_set_search_mode(qm);
+	status = qm_set_search_mode(qm, bus);
 	if (status)
 		return status;
 	printk(KERN_DEBUG "qm_init search_mode");
@@ -432,11 +432,11 @@ pt3_qm_init(PT3_QM *qm)
 }
 
 STATUS
-pt3_qm_get_locked(PT3_QM *qm, int *locked)
+pt3_qm_get_locked(PT3_QM *qm, PT3_BUS *bus, int *locked)
 {
 	STATUS status;
 
-	status = qm_read(qm, 0x0d, &qm->reg[0x0d]);
+	status = qm_read(qm, bus, 0x0d, &qm->reg[0x0d]);
 	if (status)
 		return status;
 	
@@ -456,7 +456,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	__u32 number, freq, freq_khz;
 	struct timeval begin, now;
 
-	status = pt3_tc_set_agc_s(qm->tc, PT3_TC_AGC_MANUAL);
+	status = pt3_tc_set_agc_s(qm->tc, NULL, PT3_TC_AGC_MANUAL);
 	if (status)
 		return status;
 	
@@ -469,7 +469,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 		freq_khz += 500;
 	qm->param.channel_freq = freq_khz;
 
-	status = qm_local_lpf_tuning(qm, 1);
+	status = qm_local_lpf_tuning(qm, NULL, 1);
 	if (status)
 		return status;
 
@@ -477,7 +477,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	while (1) {
 		do_gettimeofday(&now);
 
-		status = pt3_qm_get_locked(qm, &locked);
+		status = pt3_qm_get_locked(qm, NULL, &locked);
 		if (status)
 			return status;
 		if (locked)
@@ -491,7 +491,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	if (!locked)
 		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
 	
-	status = pt3_tc_set_agc_s(qm->tc, PT3_TC_AGC_AUTO);
+	status = pt3_tc_set_agc_s(qm->tc, NULL, PT3_TC_AGC_AUTO);
 	if (status)
 		return status;
 
@@ -502,7 +502,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 }
 
 PT3_QM *
-create_pt3_qm(PT3_I2C_BUS *bus, PT3_TC *tc)
+create_pt3_qm(PT3_I2C *i2c, PT3_TC *tc)
 {
 	PT3_QM *qm;
 
@@ -512,7 +512,7 @@ create_pt3_qm(PT3_I2C_BUS *bus, PT3_TC *tc)
 	if (qm == NULL)
 		goto fail;
 
-	qm->bus = bus;
+	qm->i2c = i2c;
 	qm->tc = tc;
 	qm->sleep = 1;
 

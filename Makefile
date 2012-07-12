@@ -6,7 +6,7 @@ EXTRA_CFLAGS += -Wformat=2
 
 all: ${TARGET}
 
-pt3_drv.ko: pt3_pci.c pt3_i2c_bus.c pt3_tc.c pt3_qm.c pt3_mx.c pt3_dma.c version.h
+pt3_drv.ko: pt3_pci.c pt3_bus.c pt3_i2c.c pt3_tc.c pt3_qm.c pt3_mx.c pt3_dma.c version.h
 	make -C /lib/modules/`uname -r`/build M=`pwd` V=$(VERBOSITY) modules
 
 clean:
@@ -14,7 +14,7 @@ clean:
 
 obj-m := pt3_drv.o
 
-pt3_drv-objs := pt3_pci.o pt3_i2c_bus.o pt3_tc.o pt3_qm.o pt3_mx.o pt3_dma.o
+pt3_drv-objs := pt3_pci.o pt3_bus.o pt3_i2c.o pt3_tc.o pt3_qm.o pt3_mx.o pt3_dma.o
 
 clean-files := *.o *.ko *.mod.[co] *~ version.h
 
