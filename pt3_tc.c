@@ -296,6 +296,12 @@ pt3_tc_set_ts_pins_mode_t(PT3_TC *tc, PT3_TS_PINS_MODE *mode)
 	return status;
 }
 
+__u32
+pt3_tc_index(PT3_TC *tc)
+{
+	return BIT_SHIFT_MASK(tc->tc_addr, 1, 1);
+}
+
 STATUS
 pt3_tc_write_slptim(PT3_TC *tc, int sleep)
 {

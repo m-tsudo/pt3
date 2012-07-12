@@ -9,6 +9,7 @@
 #include <linux/version.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/time.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 #include <asm/system.h>
@@ -242,6 +243,51 @@ pt3_mx_set_sleep(PT3_MX *mx, int sleep)
 	mx->sleep = sleep;
 
 	return STATUS_OK;
+}
+
+STATUS
+pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
+{
+	STATUS status;
+	int catv, locked1, locked2;
+	__u32 number, freq;
+	double real_freq;
+	struct timeval begin, now;
+
+#if 0
+	status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_MANUAL);
+	if (status)
+		return status;
+	
+	pt3_mx_get_channel_freq(mx, channel, &catv, &number, &freq);
+
+	real_freq = (7 * freq + 1 + offset) * 1000000.0 /7.0;
+
+	mx_set_frequency(mx, (__u32)real_freq);
+
+	do_gettimeofday(&begin);
+	locked1 = locked2 = 0;
+	while (1) {
+		do_gettimeofday(&now);
+		mx_get_locked1(mx, &locked1);
+		mx_get_locked2(mx, &locked2);
+
+		if (locked1 && locked2)
+			break;
+		if (time_diff(&begin, &now) > 100)
+			break;
+
+		schedule_timeout_interruptible(msecs_to_jiffies(1));	
+	}
+	if (!(locked1 && locked2))
+		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
+	
+	status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_AUTO);
+	if (status)
+		return status;
+#endif
+
+	return status;
 }
 
 PT3_MX *

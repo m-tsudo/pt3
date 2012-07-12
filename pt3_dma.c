@@ -83,6 +83,7 @@ dma_build_page_descriptor(PT3_DMA *dma)
 		prev->next_addr = dma->desc_info->addr;
 }
 
+#if 0
 static void
 dma_check_page_descriptor(PT3_DMA *dma)
 {
@@ -111,6 +112,7 @@ dma_check_page_descriptor(PT3_DMA *dma)
 		}
 	}
 }
+#endif
 
 void __iomem *
 get_base_addr(PT3_DMA *dma)
@@ -151,10 +153,10 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
 		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
-		printk(KERN_DEBUG "set dma address low %lx",
+		printk(KERN_DEBUG "set dma address low %llx",
 				BIT_SHIFT_MASK(start_addr,  0, 32));
 		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
-		printk(KERN_DEBUG "set dma address heigh %lx",
+		printk(KERN_DEBUG "set dma address heigh %llx",
 				BIT_SHIFT_MASK(start_addr, 32, 32));
 		writel( 1 << 0, base + 0x08);
 	} else {
@@ -254,6 +256,20 @@ pt3_dma_reset(PT3_DMA *dma)
 	dma->ts_pos = 0;
 }
 
+__u32
+pt3_dma_get_status(PT3_DMA *dma)
+{
+	void __iomem *base;
+	__u32 status;
+
+	base = get_base_addr(dma);
+
+	status = readl(base + 0x10);
+
+	return status;
+}
+
+
 PT3_DMA *
 create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 {
@@ -289,7 +305,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 	}
 	printk(KERN_DEBUG "Allocate TS buffer.");
 
-	dma->desc_count = (DMA_TS_BUF_SIZE / (PAGE_SIZE * BUFF_PER_WRITE) + 203) / 204;
+	dma->desc_count = (DMA_TS_BUF_SIZE / (PAGE_SIZE) + 203) / 204;
 	dma->desc_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->desc_count, GFP_KERNEL);
 	if (dma->desc_info == NULL) {
 		printk(KERN_ERR "fail allocate PT3_DMA_PAGE");
@@ -297,7 +313,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 	}
 	for (i = 0; i < dma->desc_count; i++) {
 		page = &dma->desc_info[i];
-		page->size = DMA_PAGE_SIZE * BUFF_PER_WRITE;
+		page->size = DMA_PAGE_SIZE;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			printk(KERN_ERR "fail allocate consistent. %d", i);

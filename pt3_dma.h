@@ -34,6 +34,7 @@ void pt3_dma_set_enabled(PT3_DMA *dma, int enabled);
 ssize_t pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size);
 int pt3_dma_ready(PT3_DMA *dma);
 void pt3_dma_reset(PT3_DMA *dma);
+__u32 pt3_dma_get_status(PT3_DMA *dma);
 PT3_DMA * create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_no);
 void free_pt3_dma(struct pci_dev *hwdev, PT3_DMA *dma);
 

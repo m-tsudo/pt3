@@ -192,14 +192,6 @@ ep4c_init(PT3_DEVICE *dev_conf)
 	return 0;
 }
 
-static STATUS
-get_status(PT3_I2C_BUS *bus, __u32 *val)
-{
-	*val = readl(bus->bar[0].regs + REGS_STATUS);
-
-	return 0;
-}
-
 #if 0
 static int
 get_tuner_status(int isdb, PT3_TUNER *tuner)
@@ -234,8 +226,27 @@ set_lnb(PT3_DEVICE *dev_conf, int lnb)
 	return STATUS_OK;
 }
 
+static STATUS
+set_frequency(int isdb, PT3_TUNER *tuner, __u32 channel, __s32 offset)
+{
+	STATUS status;
+
+	switch (isdb) {
+	case PT3_ISDB_S :
+		status = pt3_qm_set_frequency(tuner->qm, channel, offset);
+		break;
+	case PT3_ISDB_T :
+		status = pt3_mx_set_frequency(tuner->mx, channel, offset);
+		break;
+	default :
+		status = STATUS_INVALID_PARAM_ERROR;
+	}
+
+	return status;
+}
+
 static int
-set_tuner_sleep(PT3_I2C_BUS *bus, int isdb, PT3_TUNER *tuner, int sleep)
+set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 {
 	STATUS status;
 
@@ -277,6 +288,7 @@ static int
 tuner_power_on(PT3_DEVICE *dev_conf)
 {
 	int status, i;
+	PT3_TS_PINS_MODE pins;
 
 	PT3_I2C_BUS *bus = dev_conf->bus;
 	PT3_TUNER *tuner;
@@ -288,10 +300,22 @@ tuner_power_on(PT3_DEVICE *dev_conf)
 		printk(KERN_DEBUG "tc_init %d", i);
 	}
 
+	schedule_timeout_interruptible(msecs_to_jiffies(1));	
+
 	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, 1, 0);
 	if (status)
 		return status;
+
+	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
+	pins.byte = PT3_TS_PIN_MODE_NORMAL;
+	pins.valid = PT3_TS_PIN_MODE_NORMAL;
+
+	for (i = 0; i < MAX_TUNER; i++) {
+		tuner = &dev_conf->tuner[i];
+		pt3_tc_set_ts_pins_mode_s(tuner->tc_s, &pins);
+		pt3_tc_set_ts_pins_mode_t(tuner->tc_t, &pins);
+	}
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(bus, &dev_conf->tuner[i]);
@@ -316,7 +340,7 @@ tuner_power_on(PT3_DEVICE *dev_conf)
 static int
 init_all_tuner(PT3_DEVICE *dev_conf)
 {
-	int status;
+	int status, i, j, channel;
 	PT3_I2C_BUS *bus = dev_conf->bus;
 
 	pt3_i2c_bus_end(bus);
@@ -333,6 +357,24 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	status = tuner_power_on(dev_conf);
 	if (status)
 		return status;
+	
+	for (i = 0; i < MAX_TUNER; i++) {
+		for (j = 0; i < PT3_ISDB_MAX; j++) {
+			if (j == PT3_ISDB_S)
+				channel = 0;
+			else
+				channel = (i == 0) ? 70 : 71;
+			status = set_tuner_sleep(j, &dev_conf->tuner[i], 0);
+			if (status)
+				return status;
+			status = set_frequency(j, &dev_conf->tuner[i], channel, 0);
+			if (status)
+				return status;
+			status = set_tuner_sleep(j, &dev_conf->tuner[i], 1);
+			if (status)
+				return status;
+		}
+	}
 
 	return status;
 }
@@ -366,7 +408,7 @@ static int pt3_open(struct inode *inode, struct file *file)
 					printk(KERN_DEBUG "PT3: selected tuner_no=%d type=%d",
 							channel->tuner->tuner_no, channel->type);
 
-					set_tuner_sleep(channel->bus, channel->type, channel->tuner, 0);
+					set_tuner_sleep(channel->type, channel->tuner, 0);
 					schedule_timeout_interruptible(msecs_to_jiffies(50));
 	
 					channel->valid = 1;
@@ -394,7 +436,7 @@ static int pt3_release(struct inode *inode, struct file *file)
 	mutex_unlock(&channel->ptr->lock);
 
 	set_lnb(channel->ptr, 0);
-	set_tuner_sleep(channel->bus, channel->type, channel->tuner, 1);
+	set_tuner_sleep(channel->type, channel->tuner, 1);
 	schedule_timeout_interruptible(msecs_to_jiffies(50));
 
 	return 0;
@@ -470,7 +512,7 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		}
 		return 0;
 	case GET_STATUS:
-		get_status(channel->bus, &status);
+		status = (int)pt3_dma_get_status(channel->dma);
 		dummy = copy_to_user(arg, &status, sizeof(int));
 		return 0;
 	case SET_TEST_MODE:
@@ -618,18 +660,6 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	printk(KERN_DEBUG "Allocate tuners.");
 
 	init_all_tuner(dev_conf);
-
-	for (lp = 0; lp < MAX_TUNER; lp++) {
-		PT3_TUNER *tuner = &dev_conf->tuner[lp];
-		rc = set_tuner_sleep(dev_conf->bus, PT3_ISDB_S, tuner, 0);
-		if (rc)
-			printk(KERN_ERR
-					"failed set_tuner_sleep tuner[%d] PT3_ISDB_S %d", lp, rc);
-		rc = set_tuner_sleep(dev_conf->bus, PT3_ISDB_T, tuner, 0);
-		if (rc)
-			printk(KERN_ERR
-					"failed set_tuner_sleep tuner[%d] PT3_ISDB_T %d", lp, rc);
-	}
 
 	minor = MINOR(dev_conf->dev) ;
 	dev_conf->base_minor = minor ;

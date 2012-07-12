@@ -9,6 +9,7 @@
 #include <linux/version.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/time.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 #include <asm/system.h>
@@ -22,6 +23,12 @@
 #include "pt3_qm.h"
 
 #define INIT_DUMMY_RESET 0x0C
+
+static __u32
+time_diff(struct timeval *st, struct timeval *et)
+{
+	return (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
+}
 
 /* TUNER_S */
 void
@@ -145,6 +152,165 @@ qm_set_search_mode(PT3_QM *qm)
 	return status;
 }
 
+static __u32 FREQ_TABLE[9][3] = {
+	{ 2151000, 1, 7 },
+	{ 1950000, 1, 6 },
+	{ 1800000, 1, 5 },
+	{ 1600000, 1, 4 },
+	{ 1450000, 1, 3 },
+	{ 1250000, 1, 2 },
+	{ 1200000, 0, 7 },
+	{  975000, 0, 6 },
+	{  950000, 0, 0 }
+};
+
+static STATUS
+qm_tuning(PT3_QM *qm, __u32 *sd)
+{
+	PT3_QM_PARAM *param = &qm->param;
+	__u8 i_data;
+	__u32 i, a, N, A;
+	__s32 M, b;	// double
+	STATUS status;
+
+#if 0
+	qm->reg[0x08] &= 0xf0;
+	qm->reg[0x08] |= 0x09;
+
+	qm->reg[0x13] &= 0x9f;
+	qm->reg[0x13] |= 0x20;
+
+	for (i = 0; i < 8; i++) {
+		if ((FREQ_TABLE[i+1][0] <= param->channel_freq) &&
+				(param->channel_freq < FREQ_TABLE[i][0])) {
+			i_data = qm->reg[0x02];
+			i_data &= 0x0f;
+			i_data |= FREQ_TABLE[i][1] << 7;
+			i_data |= FREQ_TABLE[i][2] << 4;
+			status = qm_write(qm, 0x02, i_data);
+		}
+	}
+
+	M = (double)(param->channel_freq) / (double)(param->crystal_freq);
+	a = (__s32)(M + 0.5);
+	b = M - a;
+
+	N = (a - 12) >> 2;
+	A = a - 4 * (N + 1) - 5;
+
+	if (0 <= b)
+		*sd = (__u32)(pow(2, 20.) * b);
+	else
+		*sd = (__u32)(pow(2, 20.) * b + (1 << 22);
+	qm->reg[0x06] &= 0x40;
+	qm->reg[0x06] |= N;
+	status = qm_write(qm, 0x06, qm->reg[0x06]);
+	if (status)
+		return status;
+	
+	qm->reg[0x07] &= 0xf0;
+	qm->reg[0x07] |= A & 0x0f;
+	status = qm_write(qm, 0x07, qm->reg[0x07]);
+	if (status)
+		return status;
+
+#endif
+	return status;
+}
+
+static STATUS
+qm_local_lpf_tuning(PT3_QM *qm, int lpf)
+{
+	PT3_QM_PARAM *param = &qm->param;
+	__u8 i_data;
+	__u32 sd;
+	STATUS status;
+
+	sd = 0;
+	status = qm_tuning(qm, &sd);
+	if (status)
+		return status;
+
+	if (lpf) {
+		i_data = qm->reg[0x08] & 0xf0;
+		i_data |= 2;
+		status = qm_write(qm, 0x08, i_data);
+	} else {
+		status = qm_write(qm, 0x08, qm->reg[0x08]);
+	}
+	if (status)
+		return status;
+
+	qm->reg[0x09] &= 0xc0;
+	qm->reg[0x09] |= (sd >> 16) & 0x3f;
+	qm->reg[0x0a] = (__u8)(sd >> 8);
+	qm->reg[0x0b] = (__u8)(sd >> 0);
+	status = qm_write(qm, 0x09, qm->reg[0x09]);
+	if (status)
+		return status;
+	status = qm_write(qm, 0x0a, qm->reg[0x0a]);
+	if (status)
+		return status;
+	status = qm_write(qm, 0x0b, qm->reg[0x0b]);
+	if (status)
+		return status;
+
+	if (!lpf) {
+		status = qm_write(qm, 0x13, qm->reg[0x13]);
+		if (status)
+			return status;
+	}
+
+	if (lpf) {
+		i_data = qm->reg[0x0c];
+		i_data &= 0x3f;
+		status = qm_write(qm, 0x0c, i_data);
+		if (status)
+			return status;
+		qm_sleep(qm, 1);
+
+		i_data = qm->reg[0x0c];
+		i_data |= 0xc0;
+		status = qm_write(qm, 0x0c, i_data);
+		if (status)
+			return status;
+	} else {
+		i_data = qm->reg[0x0c];
+		i_data &= 0x7f;
+		status = qm_write(qm, 0x0c, i_data);
+		if (status)
+			return status;
+		qm_sleep(qm, 1);
+
+		i_data = qm->reg[0x0c];
+		i_data |= 0x80;
+		status = qm_write(qm, 0x0c, i_data);
+		if (status)
+			return status;
+	}
+
+	if (lpf) {
+		qm_sleep(qm, param->lpf_wait_time);
+	} else {
+		if (qm->reg[0x03] & 0x01) {
+			qm_sleep(qm, param->fast_search_wait_time);
+		} else {
+			qm_sleep(qm, param->normal_search_wait_time);
+		}
+	}
+
+	if (lpf) {
+		status = qm_write(qm, 0x08, 0x09);
+		if (status)
+			return status;
+		status = qm_write(qm, 0x13, qm->reg[0x13]);
+		if (status)
+			return status;
+	}
+
+	return status;
+}
+
 static __u8 qm_address[MAX_TUNER] = { 0x63, 0x60 };
 
 __u8
@@ -257,6 +423,76 @@ pt3_qm_init(PT3_QM *qm)
 	status = qm_set_search_mode(qm);
 	if (status)
 		return status;
+
+	return status;
+}
+
+STATUS
+pt3_qm_get_locked(PT3_QM *qm, int *locked)
+{
+	STATUS status;
+
+	status = qm_read(qm, 0x0d, &qm->reg[0x0d]);
+	if (status)
+		return status;
+	
+	if (qm->reg[0x0d] & 0x40)
+		*locked = 1;
+	else
+		*locked = 0;
+	
+	return status;
+}
+
+STATUS
+pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
+{
+	STATUS status;
+	int bs, locked;
+	__u32 number, freq, freq_khz;
+	struct timeval begin, now;
+
+	status = pt3_tc_set_agc_s(qm->tc, PT3_TC_AGC_MANUAL);
+	if (status)
+		return status;
+	
+	pt3_qm_get_channel_freq(channel, &bs, &number, &freq);
+	freq_khz = freq * 10 + offset;
+
+	if (pt3_tc_index(qm->tc) == 0)
+		freq_khz -= 500;
+	else
+		freq_khz += 500;
+	qm->param.channel_freq = freq_khz;
+
+	status = qm_local_lpf_tuning(qm, 1);
+	if (status)
+		return status;
+
+	do_gettimeofday(&begin);
+	while (1) {
+		do_gettimeofday(&now);
+
+		status = pt3_qm_get_locked(qm, &locked);
+		if (status)
+			return status;
+		if (locked)
+			break;
+
+		if (time_diff(&begin, &now) >= 100)
+			break;
+
+		schedule_timeout_interruptible(msecs_to_jiffies(1));	
+	}
+	if (!locked)
+		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
+	
+	status = pt3_tc_set_agc_s(qm->tc, PT3_TC_AGC_AUTO);
+	if (status)
+		return status;
+
+	qm->channel = channel;
+	qm->offset = offset;
 
 	return status;
 }

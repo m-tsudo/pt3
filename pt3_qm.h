@@ -20,10 +20,13 @@ typedef struct __PT3_QM {
 	PT3_QM_PARAM param;
 	__u8 reg[0x20];
 	int sleep;
+	__u32 channel;
+	__s32 offset;
 } PT3_QM;
 
 int pt3_qm_set_sleep(PT3_QM *qm, int sleep);
 __u8 pt3_qm_address(__u32 index);
+STATUS pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset);
 void pt3_qm_get_channel_freq(__u32 channel, int *bs, __u32 *number, __u32 *freq);
 void pt3_qm_dummy_reset(PT3_QM *qm);
 void pt3_qm_init_reg_param(PT3_QM *qm);

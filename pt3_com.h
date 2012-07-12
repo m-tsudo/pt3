@@ -17,6 +17,7 @@ typedef struct _BAR {
 enum {
 	PT3_ISDB_S,
 	PT3_ISDB_T,
+	PT3_ISDB_MAX,
 };
 
 typedef enum {
