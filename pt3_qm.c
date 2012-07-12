@@ -167,13 +167,13 @@ static __u32 FREQ_TABLE[9][3] = {
 static STATUS
 qm_tuning(PT3_QM *qm, __u32 *sd)
 {
+	STATUS status;
+#if 0
 	PT3_QM_PARAM *param = &qm->param;
 	__u8 i_data;
 	__u32 i, a, N, A;
 	__s32 M, b;	// double
-	STATUS status;
 
-#if 0
 	qm->reg[0x08] &= 0xf0;
 	qm->reg[0x08] |= 0x09;
 

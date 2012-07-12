@@ -24,9 +24,9 @@
 
 #define DMA_PAGE_SIZE			4096
 #define MAX_DESCS			204		/* 4096 / 20 */
-#define BUFF_PER_WRITE		32
-#define WRITE_SIZE			(DMA_PAGE_SIZE * 47 * 8)
-#define DMA_TS_BUF_SIZE		(WRITE_SIZE * BUFF_PER_WRITE)
+#define BLOCK_COUNT		32
+#define BLOCK_SIZE			(DMA_PAGE_SIZE * 47 * 8)
+#define DMA_TS_BUF_SIZE		(BLOCK_SIZE * BLOCK_COUNT)
 #define NOT_SYNC_BYTE		0x74
 
 static void
@@ -288,7 +288,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 	dma->tuner_index = tuner_index;
 	mutex_init(&dma->lock);
 	
-	dma->ts_count = DMA_TS_BUF_SIZE / (DMA_PAGE_SIZE * BUFF_PER_WRITE);
+	dma->ts_count = BLOCK_COUNT;
 	dma->ts_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->ts_count, GFP_KERNEL);
 	if (dma->ts_info == NULL) {
 		printk(KERN_ERR "fail allocate PT3_DMA_PAGE");
@@ -296,7 +296,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C_BUS *bus, int tuner_index)
 	}
 	for (i = 0; i < dma->ts_count; i++) {
 		page = &dma->ts_info[i];
-		page->size = DMA_PAGE_SIZE * BUFF_PER_WRITE;
+		page->size = BLOCK_SIZE;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			printk(KERN_ERR "fail allocate consistent. %d", i);

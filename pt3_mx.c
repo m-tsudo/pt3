@@ -249,12 +249,12 @@ STATUS
 pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 {
 	STATUS status;
+#if 0
 	int catv, locked1, locked2;
 	__u32 number, freq;
 	double real_freq;
 	struct timeval begin, now;
 
-#if 0
 	status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_MANUAL);
 	if (status)
 		return status;
