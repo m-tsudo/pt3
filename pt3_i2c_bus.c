@@ -216,19 +216,19 @@ wait(PT3_I2C_BUS *bus, __u32 *data)
 static STATUS
 run_code(PT3_I2C_BUS *bus, __u32 start_addr, __u32 *ack)
 {
-	__u32 data;
+	__u32 data, a;
 
 	wait(bus, &data);
 
-	writel(1 << 16 | (start_addr + 4096), bus->bar[0].regs + REGS_I2C_W);
+	writel(1 << 16 | start_addr, bus->bar[0].regs + REGS_I2C_W);
 
 	wait(bus, &data);
 
-	data = BIT_SHIFT_MASK(data, 1, 2);
+	a = BIT_SHIFT_MASK(data, 1, 2);
 	if (ack != NULL)
-		*ack = data;
+		*ack = a;
 
-	return data ? STATUS_I2C_ERROR : STATUS_OK;
+	return BIT_SHIFT_MASK(data, 1, 2) ? STATUS_I2C_ERROR : STATUS_OK;
 }
 
 static void
@@ -262,11 +262,7 @@ pt3_i2c_bus_copy(PT3_I2C_BUS *bus)
 
 	dst = bus->bar[1].regs + (bus->inst_addr / 2);
 
-	if (bus->inst_addr / 2 > 2048) {
-		printk(KERN_ERR "PT3 : i2c bus copy address is invalid.");
-		return;
-	}
-#if 1
+#if 0
 	printk(KERN_DEBUG "PT3 : i2c_bus_copy. base=%p dst=%p src=%p size=%d",
 						bus->bar[1].regs, dst, priv->sbuf, priv->sbuf_pos);
 #endif

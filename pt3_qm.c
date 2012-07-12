@@ -64,10 +64,10 @@ static __u8 flag[0x20] = {
 	0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 };
 
-static int
+static STATUS
 qm_write(PT3_QM *qm, __u8 addr, __u8 data)
 {
-	int ret;
+	STATUS ret;
 	ret = pt3_tc_write_tuner(qm->tc, addr, &data, sizeof(data));
 	qm->reg[addr] = data;
 	return ret;
@@ -383,12 +383,13 @@ pt3_qm_init(PT3_QM *qm)
 	status = qm_write(qm, 0x01, INIT_DUMMY_RESET);
 	if (status)
 		return status;
+	printk(KERN_DEBUG "qm_init dummy_reset");
 
 	qm_sleep(qm, 1);
 
 	i_data = qm->reg[0x01];
 	i_data |= 0x10;
-	status = qm_write(qm, 0x1, i_data);
+	status = qm_write(qm, 0x01, i_data);
 	if (status)
 		return status;
 	
@@ -415,14 +416,17 @@ pt3_qm_init(PT3_QM *qm)
 				return status;
 		}
 	}
+	printk(KERN_DEBUG "qm_init LPF turning on");
 
 	status = qm_set_sleep_mode(qm);
 	if (status)
 		return status;
+	printk(KERN_DEBUG "qm_init set_sleep_mode");
 
 	status = qm_set_search_mode(qm);
 	if (status)
 		return status;
+	printk(KERN_DEBUG "qm_init search_mode");
 
 	return status;
 }

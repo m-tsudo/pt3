@@ -97,7 +97,7 @@ pt3_tc_read_tuner(PT3_TC *tc, __u8 addr, __u8 *data, __u32 size)
 	pt3_i2c_bus_stop(tc->bus);
 
 	pt3_i2c_bus_end(tc->bus);
-	status = pt3_i2c_bus_run(tc->bus, NULL, 0);
+	status = pt3_i2c_bus_run(tc->bus, NULL, 1);
 	for (i = 0; i < size; i++)
 		data[i] = pt3_i2c_bus_data1(tc->bus, rindex + i);
 
@@ -110,9 +110,11 @@ pt3_tc_write_tuner(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size)
 	__u8 buf;
 
 	pt3_i2c_bus_start(tc->bus);
-	buf = tc->tc_addr;
+	buf = tc->tc_addr << 1;
 	pt3_i2c_bus_write(tc->bus, &buf, 1);
 	buf = TC_THROUGH;
+	pt3_i2c_bus_write(tc->bus, &buf, 1);
+	buf = tc->tuner_addr << 1;
 	pt3_i2c_bus_write(tc->bus, &buf, 1);
 	pt3_i2c_bus_write(tc->bus, &addr, 1);
 	pt3_i2c_bus_write(tc->bus, data, size);
@@ -120,7 +122,7 @@ pt3_tc_write_tuner(PT3_TC *tc, __u8 addr, const __u8 *data, __u32 size)
 
 	pt3_i2c_bus_end(tc->bus);
 
-	return pt3_i2c_bus_run(tc->bus, NULL, 0);
+	return pt3_i2c_bus_run(tc->bus, NULL, 1);
 }
 
 /* TC_S */
