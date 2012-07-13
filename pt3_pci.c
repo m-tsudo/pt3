@@ -145,7 +145,7 @@ setup_bar(struct pci_dev *pdev, BAR *bar, int index)
 		printk(KERN_ERR "PT3:cannot request iomem  (0x%llx).\n", (unsigned long long) bar->mmio_start);
 		goto out_err_regbase;
 	}
-	printk(KERN_DEBUG "request_mem_resion success. mmio_start=%lu mmio_len=%u",
+	printk(KERN_DEBUG "request_mem_resion success. mmio_start=0x%lx mmio_len=%u",
 						bar->mmio_start, bar->mmio_len);
 
 	bar->regs = ioremap(bar->mmio_start, bar->mmio_len);
@@ -278,23 +278,29 @@ init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 			return STATUS_OUT_OF_MEMORY_ERROR;
 		pt3_qm_dummy_reset(tuner->qm, bus);
 		pt3_bus_end(bus);
-		pt3_i2c_run(i2c, bus, NULL, 1);
+		status = pt3_i2c_run(i2c, bus, NULL, 1);
 		free_pt3_bus(bus);
+		if (status)
+			return status;
+		printk(KERN_DEBUG "init_tuner dummy reset");
 	}
-	printk(KERN_DEBUG "init_tuner dummy reset");
 
 	{
 		bus = create_pt3_bus();
 		if (bus == NULL)
 			return STATUS_OUT_OF_MEMORY_ERROR;
 		status = pt3_qm_init(tuner->qm, bus);
+		if (status) {
+			free_pt3_bus(bus);
+			return status;
+		}
+		pt3_bus_end(bus);
+		status = pt3_i2c_run(i2c, bus, NULL, 1);
+		free_pt3_bus(bus);
 		if (status)
 			return status;
-		pt3_bus_end(bus);
-		pt3_i2c_run(i2c, bus, NULL, 1);
-		free_pt3_bus(bus);
+		printk(KERN_DEBUG "init_tuner qm init");
 	}
-	printk(KERN_DEBUG "init_tuner qm init");
 
 	return status;
 }
@@ -309,18 +315,22 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
-		pt3_tc_init_s(tuner->tc_s, bus);
-		pt3_tc_init_t(tuner->tc_t, bus);
-		printk(KERN_DEBUG "tc_init %d", i);
+		status = pt3_tc_init_s(tuner->tc_s, NULL);
+		printk(KERN_DEBUG "tc_init_s[%d] status=0x%x", i, status);
+	}
+	for (i = 0; i < MAX_TUNER; i++) {
+		tuner = &dev_conf->tuner[i];
+		status = pt3_tc_init_t(tuner->tc_t, NULL);
+		printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
 	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(1));	
 
 	tuner = &dev_conf->tuner[1];
-	status = pt3_tc_set_powers(tuner->tc_t, bus, 1, 0);
+	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
 	if (status)
-		return status;
-	printk(KERN_DEBUG "set powers");
+		goto last;
+	printk(KERN_DEBUG "set powers.");
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -328,9 +338,13 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
-		pt3_tc_set_ts_pins_mode_s(tuner->tc_s, bus, &pins);
-		pt3_tc_set_ts_pins_mode_t(tuner->tc_t, bus, &pins);
-		printk(KERN_DEBUG "set ts pins mode %d", i);
+		status = pt3_tc_set_ts_pins_mode_s(tuner->tc_s, NULL, &pins);
+		printk(KERN_DEBUG "set ts pins mode s [%d] status=0x%x", i, status);
+	}
+	for (i = 0; i < MAX_TUNER; i++) {
+		tuner = &dev_conf->tuner[i];
+		status = pt3_tc_set_ts_pins_mode_t(tuner->tc_t, NULL, &pins);
+		printk(KERN_DEBUG "set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(1));	
@@ -338,7 +352,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
 		if (status)
-			return status;
+			goto last;
 		printk(KERN_DEBUG "init_tuner %d", i);
 	}
 
@@ -346,18 +360,18 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		pt3_i2c_copy(dev_conf->i2c, bus);
 
 	bus->inst_addr = PT3_BUS_INST_ADDR1;
-	printk(KERN_DEBUG "change instruction address %x", PT3_BUS_INST_ADDR1);
 
+	printk(KERN_DEBUG "inst_count = %d", bus->inst_count);
 	status = pt3_i2c_run(dev_conf->i2c, bus, NULL, 0);
 	if (status)
-		return status;
-	printk(KERN_DEBUG "non copy bus run.");
+		goto last;
 
-	status = pt3_tc_set_powers(tuner->tc_t, bus, 1, 1);
+	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
 	if (status)
-		return status;
-	printk(KERN_DEBUG "tc_set_powers");
+		goto last;
+	printk(KERN_DEBUG "tc_set_powers %d", i);
 
+last:
 	return status;
 }
 
@@ -374,18 +388,17 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 
 	pt3_bus_end(bus);
 	bus->inst_addr = PT3_BUS_INST_ADDR0;
-	printk(KERN_DEBUG "change instruction address %x", PT3_BUS_INST_ADDR0);
 
 	if (!pt3_i2c_is_clean(i2c)) {
 		printk(KERN_INFO "I2C bus is dirty.");
 		status = pt3_i2c_run(i2c, bus, NULL, 0);
 		if (status)
-			goto fail;
+			goto last;
 	}
 
 	status = tuner_power_on(dev_conf, bus);
 	if (status)
-		goto fail;
+		goto last;
 	printk(KERN_DEBUG "tuner_power_on");
 	
 	for (i = 0; i < MAX_TUNER; i++) {
@@ -396,20 +409,18 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 				channel = (i == 0) ? 70 : 71;
 			status = set_tuner_sleep(j, &dev_conf->tuner[i], 0);
 			if (status)
-				goto fail;
+				goto last;
 			status = set_frequency(j, &dev_conf->tuner[i], channel, 0);
 			if (status)
-				goto fail;
+				goto last;
 			status = set_tuner_sleep(j, &dev_conf->tuner[i], 1);
 			if (status)
-				goto fail;
+				goto last;
 		}
 	}
+last:
 	free_pt3_bus(bus);
 	return status;
-fail:
-	free_pt3_bus(bus);
-	goto fail;
 }
 
 static int pt3_open(struct inode *inode, struct file *file)
@@ -547,9 +558,12 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 	case GET_STATUS:
 		status = (int)pt3_dma_get_status(channel->dma);
 		dummy = copy_to_user(arg, &status, sizeof(int));
+		if (status)
+			printk(KERN_ERR "fail ioctl GET_STATUS. status=%x", status);
 		return 0;
 	case SET_TEST_MODE:
-		pt3_dma_set_test_mode(channel->dma, 1, 0, 0, 0);
+		status = (1 + channel->dma->tuner_index) * 12345;
+		pt3_dma_set_test_mode(channel->dma, 1, (__u16)status, 0, 0);
 		return 0;
 	}
 
@@ -648,7 +662,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		printk(KERN_ERR "PT3:out of memory !");
 		return -ENOMEM ;
 	}
-	printk(KERN_DEBUG "Allocate PT3_DEVICE.");
+	// printk(KERN_DEBUG "Allocate PT3_DEVICE.");
 
 	// PCIアドレスをマップする
 	if (setup_bar(pdev, &dev_conf->bar[0], 0))
@@ -667,7 +681,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		printk(KERN_ERR "PT3: cannot allocate i2c.");
 		goto out_err_i2c;
 	}
-	printk(KERN_DEBUG "Allocate PT3_I2C.");
+	//printk(KERN_DEBUG "Allocate PT3_I2C.");
 
 	// Tuner
 	for (lp = 0; lp < MAX_TUNER; lp++) {
@@ -690,11 +704,11 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		tuner->tc_t = create_pt3_tc(dev_conf->i2c, tc_addr, tuner_addr);
 		tuner->mx   = create_pt3_mx(dev_conf->i2c, tuner->tc_t);
 	}
-	printk(KERN_DEBUG "Allocate tuners.");
+	//printk(KERN_DEBUG "Allocate tuners.");
 
 	rc = init_all_tuner(dev_conf);
 	if (rc) {
-		printk(KERN_ERR "fail init_all_tuner. %x", rc);
+		printk(KERN_ERR "fail init_all_tuner. 0x%x", rc);
 	}
 
 	minor = MINOR(dev_conf->dev) ;

@@ -22,7 +22,7 @@
 #include "pt3_pci.h"
 #include "pt3_qm.h"
 
-#define INIT_DUMMY_RESET 0x0C
+#define INIT_DUMMY_RESET 0x0c
 
 static __u32
 time_diff(struct timeval *st, struct timeval *et)
@@ -73,14 +73,14 @@ qm_write(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 data)
 	return ret;
 }
 
-static int
+static STATUS
 qm_read(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 *data)
 {
-	int status;
+	STATUS status;
 	if ((addr = 0x00 ) || (addr == 0x0d))
 		status = pt3_tc_read_tuner(qm->tc, bus, addr, data, 1);
 	else 
-		status = 0;
+		status = STATUS_OK;
 
 	return status;
 }
@@ -94,10 +94,10 @@ qm_sleep(PT3_QM *qm, PT3_BUS *bus, __u32 ms)
 		schedule_timeout_interruptible(msecs_to_jiffies(ms));	
 }
 
-static int
+static STATUS
 qm_set_sleep_mode(PT3_QM *qm, PT3_BUS *bus)
 {
-	int status;
+	STATUS status;
 	PT3_QM_PARAM *param;
 	
 	param = &qm->param;
@@ -129,10 +129,10 @@ qm_set_sleep_mode(PT3_QM *qm, PT3_BUS *bus)
 	return status;
 }
 
-static int
+static STATUS
 qm_set_search_mode(PT3_QM *qm, PT3_BUS *bus)
 {
-	int status;
+	STATUS status;
 	PT3_QM_PARAM *param;
 	
 	param = &qm->param;
@@ -319,7 +319,7 @@ pt3_qm_address(__u32 index)
 	return qm_address[index];
 }
 
-int
+STATUS
 pt3_qm_set_sleep(PT3_QM *qm, int sleep)
 {
 	STATUS status;
@@ -374,7 +374,7 @@ pt3_qm_init_reg_param(PT3_QM *qm)
 	qm->param.normal_search_wait_time = 15;
 }
 
-int
+STATUS
 pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 {
 	__u8 i_data;
@@ -383,7 +383,6 @@ pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 	status = qm_write(qm, bus, 0x01, INIT_DUMMY_RESET);
 	if (status)
 		return status;
-	printk(KERN_DEBUG "qm_init dummy_reset");
 
 	qm_sleep(qm, bus, 1);
 
@@ -416,17 +415,14 @@ pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 				return status;
 		}
 	}
-	printk(KERN_DEBUG "qm_init LPF turning on");
 
 	status = qm_set_sleep_mode(qm, bus);
 	if (status)
 		return status;
-	printk(KERN_DEBUG "qm_init set_sleep_mode");
 
 	status = qm_set_search_mode(qm, bus);
 	if (status)
 		return status;
-	printk(KERN_DEBUG "qm_init search_mode");
 
 	return status;
 }

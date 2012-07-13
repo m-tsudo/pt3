@@ -25,13 +25,13 @@ typedef struct __PT3_QM {
 	__s32 offset;
 } PT3_QM;
 
-int pt3_qm_set_sleep(PT3_QM *qm, int sleep);
+STATUS pt3_qm_set_sleep(PT3_QM *qm, int sleep);
 __u8 pt3_qm_address(__u32 index);
 STATUS pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset);
 void pt3_qm_get_channel_freq(__u32 channel, int *bs, __u32 *number, __u32 *freq);
 void pt3_qm_dummy_reset(PT3_QM *qm, PT3_BUS *bus);
 void pt3_qm_init_reg_param(PT3_QM *qm);
-int pt3_qm_init(PT3_QM *qm, PT3_BUS *bus);
+STATUS pt3_qm_init(PT3_QM *qm, PT3_BUS *bus);
 PT3_QM * create_pt3_qm(PT3_I2C *i2c, PT3_TC *tc);
 void free_pt3_qm(PT3_QM *qm);
 

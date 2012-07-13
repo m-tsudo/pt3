@@ -55,6 +55,9 @@ pt3_tc_write(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 size)
 		status =  pt3_i2c_run(tc->i2c, p, NULL, 1);
 	}
 
+	if (!bus)
+		free_pt3_bus(p);
+
 	return status;
 }
 
@@ -87,6 +90,9 @@ pt3_tc_write_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, const __u8 *data, __u3
 		pt3_bus_end(p);
 		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
 	}
+
+	if (!bus)
+		free_pt3_bus(p);
 
 	return status;
 }
@@ -138,6 +144,9 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 			data[i] = pt3_bus_data1(p, rindex + i);
 	}
 
+	if (!bus)
+		free_pt3_bus(p);
+
 	return status;
 }
 
@@ -171,6 +180,9 @@ pt3_tc_write_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 
 		pt3_bus_end(p);
 		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
 	}
+
+	if (!bus)
+		free_pt3_bus(p);
 
 	return status;
 }

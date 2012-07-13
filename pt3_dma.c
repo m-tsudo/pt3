@@ -136,6 +136,7 @@ pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
 #endif
 
 	writel(data, base + 0x0c);
+	printk(KERN_DEBUG "set_test_mode value=%lx", readl(base + 0x0c));
 }
 
 void
@@ -149,7 +150,7 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 	start_addr = dma->desc_info->addr;
 
 	if (enabled) {
-		printk(KERN_DEBUG "enable dma tuner_index=%d start_addr=%llu offset=%d",
+		printk(KERN_DEBUG "enable dma tuner_index=%d start_addr=%llx offset=%d",
 				dma->tuner_index, start_addr, base - dma->i2c->bar[0].regs);
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
@@ -224,10 +225,15 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size)
 int
 pt3_dma_ready(PT3_DMA *dma)
 {
+	__u32 next;
 	PT3_DMA_PAGE *page;
 	__u8 *p;
 
-	page = &dma->ts_info[dma->ts_pos];
+	next = dma->ts_pos + 1;
+	if (next >= dma->ts_count)
+		next = 0;
+
+	page = &dma->ts_info[next];
 	p = &page->data[page->data_pos];
 
 	if (*p == 0x47)
@@ -302,7 +308,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_index)
 			goto fail;
 		}
 	}
-	printk(KERN_DEBUG "Allocate TS buffer.");
+	//printk(KERN_DEBUG "Allocate TS buffer.");
 
 	dma->desc_count = (DMA_TS_BUF_SIZE / (PAGE_SIZE) + 203) / 204;
 	dma->desc_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->desc_count, GFP_KERNEL);
@@ -319,7 +325,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_index)
 			goto fail;
 		}
 	}
-	printk(KERN_DEBUG "Allocate Descriptor buffer.");
+	//printk(KERN_DEBUG "Allocate Descriptor buffer.");
 	
 	dma_build_page_descriptor(dma);
 	printk(KERN_DEBUG "set page descriptor.");

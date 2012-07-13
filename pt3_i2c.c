@@ -46,9 +46,14 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 
 	wait(i2c, &data);
 
+	if (start_addr >= (1 << 13))
+		printk(KERN_DEBUG "start address is over.");
+	
 	writel(1 << 16 | start_addr, i2c->bar[0].regs + REGS_I2C_W);
 
 	wait(i2c, &data);
+
+	printk(KERN_DEBUG "i2c status 0x%lx", data);
 
 	a = BIT_SHIFT_MASK(data, 1, 2);
 	if (ack != NULL)
@@ -60,15 +65,15 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 void
 pt3_i2c_copy(PT3_I2C *i2c, PT3_BUS *bus)
 {
-	__u8 *dst;
+	void __iomem *dst;
 	__u8 *src;
 
 	src = &bus->insts[0];
-	dst = i2c->bar[1].regs + (bus->inst_addr / 2);
+	dst = i2c->bar[1].regs + DATA_OFFSET + (bus->inst_addr / 2);
 
 #if 0
 	printk(KERN_DEBUG "PT3 : i2c_copy. base=%p dst=%p src=%p size=%d",
-						bus->bar[1].regs, dst, priv->sbuf, priv->sbuf_pos);
+						i2c->bar[1].regs, dst, src, bus->inst_pos);
 #endif
 	memcpy(dst, src, bus->inst_pos);
 }
@@ -122,6 +127,9 @@ create_pt3_i2c(BAR *bar)
 	i2c = vzalloc(sizeof(PT3_I2C));
 	if (i2c == NULL)
 		goto fail;
+
+	mutex_init(&i2c->lock);
+	i2c->bar = bar;
 
 	return i2c;
 fail:
