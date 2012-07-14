@@ -24,12 +24,6 @@
 
 #define INIT_DUMMY_RESET 0x0c
 
-static __u32
-time_diff(struct timeval *st, struct timeval *et)
-{
-	return (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
-}
-
 /* TUNER_S */
 void
 pt3_qm_get_channel_freq(__u32 channel, int *bs, __u32 *number, __u32 *freq)

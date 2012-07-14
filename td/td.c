@@ -37,34 +37,37 @@ test_open(const char* src, const char* dst)
 	if (rc < 0)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
+	goto last;
 
-	rc = ioctl(fd_src, SET_TEST_MODE, 0);
-	if (rc < 0)
-		perror("fail set test mode.");
+	if ((status >> 24) != 0x47) {
+		printf("TS sync byte error\n");
+		goto last;
+	}
 
-	printf("start rec\n");
-	rc = ioctl(fd_src, START_REC, 0);
+	rc = ioctl(fd_src, SET_TEST_MODE_ON, 0);
 	if (rc < 0)
-		perror("fail start rec");
+		perror("fail set test mode on.");
 
 	rc = ioctl(fd_src, GET_STATUS, &status);
 	if (rc < 0)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
+
 	for (i = 0; i < 100; i++) {
 		rsize = read(fd_src, buf, sizeof(buf));
 		write(fd_dst, buf, rsize);
 	}
-	printf("stop rec\n");
-	rc = ioctl(fd_src, STOP_REC, 0);
+
+	rc = ioctl(fd_src, SET_TEST_MODE_OFF, 0);
 	if (rc < 0)
-		perror("fail stop rec");
+		perror("fail set test mode off.");
 
 	rc = ioctl(fd_src, GET_STATUS, &status);
 	if (rc < 0)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
 
+last:
 	close(fd_dst);
 	close(fd_src);
 

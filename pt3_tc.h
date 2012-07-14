@@ -36,5 +36,6 @@ STATUS pt3_tc_set_ts_pins_mode_s(PT3_TC *tc, PT3_BUS *bus, PT3_TS_PINS_MODE *mod
 STATUS pt3_tc_set_ts_pins_mode_t(PT3_TC *tc, PT3_BUS *bus, PT3_TS_PINS_MODE *mode);
 PT3_TC * create_pt3_tc(PT3_I2C *i2c, __u8 tc_addr, __u8 qm_addr);
 void free_pt3_tc(PT3_TC *tc);
+__u32 time_diff(struct timeval *st, struct timeval *et);
 
 #endif

@@ -13,6 +13,7 @@ typedef	struct	_frequency{
 #define		LNB_ENABLE	_IOW(0x8d, 0x05, int)
 #define		LNB_DISABLE	_IO(0x8d, 0x06)
 #define		GET_STATUS _IOR(0x8d, 0x07, int *)
-#define		SET_TEST_MODE _IO(0x8d, 0x08)
+#define		SET_TEST_MODE_ON _IO(0x8d, 0x08)
+#define		SET_TEST_MODE_OFF _IO(0x8d, 0x09)
 
 #endif

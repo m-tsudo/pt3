@@ -324,13 +324,15 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(1));	
+	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
 	if (status)
 		goto last;
 	printk(KERN_DEBUG "set powers.");
+
+	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -359,17 +361,17 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	if (bus->inst_addr < 4096)
 		pt3_i2c_copy(dev_conf->i2c, bus);
 
+#if 0
 	bus->inst_addr = PT3_BUS_INST_ADDR1;
-
-	printk(KERN_DEBUG "inst_count = %d", bus->inst_count);
 	status = pt3_i2c_run(dev_conf->i2c, bus, NULL, 0);
 	if (status)
 		goto last;
+#endif
 
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
 	if (status)
 		goto last;
-	printk(KERN_DEBUG "tc_set_powers %d", i);
+	printk(KERN_DEBUG "tc_set_powers,");
 
 last:
 	return status;
@@ -486,6 +488,7 @@ static int pt3_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int dma_look_ready[MAX_CHANNEL] = {1, 1, 1, 1};
 static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t * ppos)
 {
 	size_t rcnt;
@@ -493,7 +496,8 @@ static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t 
 
 	channel = file->private_data;
 
-	rcnt = pt3_dma_copy(channel->dma, buf, cnt);
+	rcnt = pt3_dma_copy(channel->dma, buf, cnt,
+						dma_look_ready[channel->dma->real_index]);
 	if (rcnt < 0) {
 		printk(KERN_INFO "PT3: fail copy_to_user.");
 		return -EFAULT;
@@ -558,12 +562,27 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 	case GET_STATUS:
 		status = (int)pt3_dma_get_status(channel->dma);
 		dummy = copy_to_user(arg, &status, sizeof(int));
-		if (status)
-			printk(KERN_ERR "fail ioctl GET_STATUS. status=%x", status);
 		return 0;
-	case SET_TEST_MODE:
-		status = (1 + channel->dma->tuner_index) * 12345;
+	case SET_TEST_MODE_ON:
+		pt3_dma_build_page_descriptor(channel->dma, 0);
+		printk(KERN_DEBUG "rebuild dma descriptor.");
+		status = (1 + channel->dma->real_index) * 12345;
 		pt3_dma_set_test_mode(channel->dma, 1, (__u16)status, 0, 0);
+		printk(KERN_DEBUG "set test mode.");
+		pt3_dma_set_enabled(channel->dma, 1);
+		while (1) {
+			status = (int)pt3_dma_get_status(channel->dma);
+			if ((status & 0x01) == 0)
+				break;
+			printk(KERN_DEBUG "PT3: status = 0x%x", status);
+			schedule_timeout_interruptible(msecs_to_jiffies(100));	
+		}
+		dma_look_ready[channel->dma->real_index] = 0;
+		return 0;
+	case SET_TEST_MODE_OFF:
+		dma_look_ready[channel->dma->real_index] = 1;
+		pt3_dma_build_page_descriptor(channel->dma, 1);
+		pt3_dma_set_enabled(channel->dma, 0);
 		return 0;
 	}
 
@@ -752,7 +771,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		mutex_init(&channel->lock);
 		mutex_init(&channel->biglock);
 		channel->minor = MINOR(dev_conf->dev) + lp;
-		channel->tuner = &dev_conf->tuner[lp & 0x01];
+		channel->tuner = &dev_conf->tuner[real_channel[lp] >> 1];
 		channel->type = channel_type[lp];
 		channel->ptr = dev_conf;
 		channel->i2c = dev_conf->i2c;
@@ -813,17 +832,23 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 
 	__u32 lp;
 	PT3_BUS *bus;
+	PT3_TUNER *tuner;
+	PT3_CHANNEL *channel;
 	PT3_DEVICE	*dev_conf = (PT3_DEVICE *)pci_get_drvdata(pdev);
 
 	if(dev_conf){
 		bus = create_pt3_bus();
 
-		// TODO Stop DMA
+		for (lp = 0; lp < MAX_CHANNEL; lp++) {
+			channel = dev_conf->channel[lp];
+			if (channel->dma->enabled)
+				pt3_dma_set_enabled(channel->dma, 0);
+		}
 		set_lnb(dev_conf, 0);
 		pt3_i2c_reset(dev_conf->i2c);
 
 		for (lp = 0; lp < MAX_TUNER; lp++) {
-			PT3_TUNER *tuner = &dev_conf->tuner[lp];
+			tuner = &dev_conf->tuner[lp];
 
 			if (tuner->tc_s != NULL) {
 				pt3_tc_set_powers(tuner->tc_s, bus, 0, 0);

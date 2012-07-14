@@ -53,7 +53,7 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 
 	wait(i2c, &data);
 
-	printk(KERN_DEBUG "i2c status 0x%lx", data);
+	//printk(KERN_DEBUG "i2c status 0x%lx", data);
 
 	a = BIT_SHIFT_MASK(data, 1, 2);
 	if (ack != NULL)

@@ -42,8 +42,8 @@ dma_write_descriptor(__u64 ts_addr, __u32 size, __u64 next_addr, PT3_DMA_DESC *d
 #endif
 }
 
-static void
-dma_build_page_descriptor(PT3_DMA *dma)
+void
+pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 {
 	PT3_DMA_PAGE *desc_info, *ts_info;
 	__u64 ts_addr, desc_addr;
@@ -80,8 +80,10 @@ dma_build_page_descriptor(PT3_DMA *dma)
 		}
 	}
 
-	if (prev != NULL)
+	if (loop && prev != NULL)
 		prev->next_addr = dma->desc_info->addr;
+	else
+		prev->next_addr = 1;
 }
 
 #if 0
@@ -118,7 +120,7 @@ dma_check_page_descriptor(PT3_DMA *dma)
 void __iomem *
 get_base_addr(PT3_DMA *dma)
 {
-	return dma->i2c->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->tuner_index;
+	return dma->i2c->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->real_index;
 }
 
 void
@@ -136,7 +138,7 @@ pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
 #endif
 
 	writel(data, base + 0x0c);
-	printk(KERN_DEBUG "set_test_mode value=%lx", readl(base + 0x0c));
+	printk(KERN_DEBUG "set_test_mode value=0x%x", readl(base + 0x0c));
 }
 
 void
@@ -150,19 +152,19 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 	start_addr = dma->desc_info->addr;
 
 	if (enabled) {
-		printk(KERN_DEBUG "enable dma tuner_index=%d start_addr=%llx offset=%d",
-				dma->tuner_index, start_addr, base - dma->i2c->bar[0].regs);
+		printk(KERN_DEBUG "enable dma real_index=%d start_addr=%llx offset=%d",
+				dma->real_index, start_addr, base - dma->i2c->bar[0].regs);
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
 		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
-		printk(KERN_DEBUG "set dma address low %llx",
+		printk(KERN_DEBUG "set descriptor address low %llx",
 				BIT_SHIFT_MASK(start_addr,  0, 32));
 		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
-		printk(KERN_DEBUG "set dma address heigh %llx",
+		printk(KERN_DEBUG "set descriptor address heigh %llx",
 				BIT_SHIFT_MASK(start_addr, 32, 32));
 		writel( 1 << 0, base + 0x08);
 	} else {
-		printk(KERN_DEBUG "disable dma tuner_index=%d", dma->tuner_index);
+		printk(KERN_DEBUG "disable dma real_index=%d", dma->real_index);
 		writel(1 << 1, base + 0x08);
 		while (1) {
 			data = readl(base + 0x10);
@@ -175,11 +177,11 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 }
 
 ssize_t
-pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size)
+pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, int look_ready)
 {
 	int ready;
 	PT3_DMA_PAGE *page;
-	size_t rsize, remain;
+	size_t csize, remain;
 	__u8 *p;
 
 	mutex_lock(&dma->lock);
@@ -187,26 +189,26 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size)
 	while (1) {
 		if (remain <= 0)
 			break;
-		ready = pt3_dma_ready(dma);
-		if (!ready)
-			break;
+		if (look_ready) {
+			ready = pt3_dma_ready(dma);
+			if (!ready)
+				break;
+		}
 
 		page = &dma->ts_info[dma->ts_pos];
 		if ((page->size - page->data_pos) > remain) {
-			rsize = remain;
+			csize = remain;
 		} else {
-			rsize = (page->size - page->data_pos);
+			csize = (page->size - page->data_pos);
 		}
-		if (copy_to_user(buf, page->data, rsize)) {
+		if (copy_to_user(buf, page->data, csize)) {
 			mutex_unlock(&dma->lock);
 			return -EFAULT;
 		}
-		/*
 		printk(KERN_DEBUG "copy_to_user size=%d ts_pos=%d data_size = %d data_pos=%d",
-				rsize, dma->ts_pos, page->size, page->data_pos);
-		*/
-		remain -= rsize;
-		page->data_pos += rsize;
+				csize, dma->ts_pos, page->size, page->data_pos);
+		remain -= csize;
+		page->data_pos += csize;
 		if (page->data_pos >= page->size) {
 			page->data_pos = 0;
 			p = &page->data[page->data_pos];
@@ -276,7 +278,7 @@ pt3_dma_get_status(PT3_DMA *dma)
 
 
 PT3_DMA *
-create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_index)
+create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 {
 	PT3_DMA *dma;
 	PT3_DMA_PAGE *page;
@@ -290,7 +292,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_index)
 
 	dma->enabled = 0;
 	dma->i2c = i2c;
-	dma->tuner_index = tuner_index;
+	dma->real_index = real_index;
 	mutex_init(&dma->lock);
 	
 	dma->ts_count = BLOCK_COUNT;
@@ -327,8 +329,8 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int tuner_index)
 	}
 	//printk(KERN_DEBUG "Allocate Descriptor buffer.");
 	
-	dma_build_page_descriptor(dma);
-	printk(KERN_DEBUG "set page descriptor.");
+	pt3_dma_build_page_descriptor(dma, 1);
+	//printk(KERN_DEBUG "set page descriptor.");
 #if 0
 	dma_check_page_descriptor(dma);
 #endif

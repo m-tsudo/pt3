@@ -20,7 +20,7 @@ typedef struct _PT3_DMA_PAGE {
 
 typedef struct __PT3_DMA {
 	PT3_I2C *i2c;
-	int tuner_index;
+	int real_index;
 	int enabled;
 	__u32 desc_count;
 	PT3_DMA_PAGE *desc_info;
@@ -30,9 +30,10 @@ typedef struct __PT3_DMA {
 	struct mutex lock;
 } PT3_DMA;
 
+void pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop);
 void pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset);
 void pt3_dma_set_enabled(PT3_DMA *dma, int enabled);
-ssize_t pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size);
+ssize_t pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, int look_ready);
 int pt3_dma_ready(PT3_DMA *dma);
 void pt3_dma_reset(PT3_DMA *dma);
 __u32 pt3_dma_get_status(PT3_DMA *dma);
