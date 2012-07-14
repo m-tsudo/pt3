@@ -71,9 +71,10 @@ static STATUS
 qm_read(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 *data)
 {
 	STATUS status;
-	if ((addr = 0x00 ) || (addr == 0x0d))
+	if ((addr == 0x00 ) || (addr == 0x0d)) {
+		printk(KERN_DEBUG "qm_read addr=0x%x data=0x%x", addr, *data);
 		status = pt3_tc_read_tuner(qm->tc, bus, addr, data, 1);
-	else 
+	} else 
 		status = STATUS_OK;
 
 	return status;
@@ -162,7 +163,6 @@ static STATUS
 qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
 {
 	STATUS status;
-#if 0
 	PT3_QM_PARAM *param = &qm->param;
 	__u8 i_data;
 	__u32 i, a, N, A;
@@ -181,34 +181,37 @@ qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
 			i_data &= 0x0f;
 			i_data |= FREQ_TABLE[i][1] << 7;
 			i_data |= FREQ_TABLE[i][2] << 4;
-			status = qm_write(qm, 0x02, i_data);
+			status = qm_write(qm, bus, 0x02, i_data);
 		}
 	}
 
-	M = (double)(param->channel_freq) / (double)(param->crystal_freq);
-	a = (__s32)(M + 0.5);
+	//M = (double)(param->channel_freq) / (double)(param->crystal_freq);
+	M = param->channel_freq / param->crystal_freq;
+	//a = (__s32)(M + 0.5);
+	a = (__s32)((M * 10 + 5) / 10);
 	b = M - a;
 
 	N = (a - 12) >> 2;
 	A = a - 4 * (N + 1) - 5;
 
 	if (0 <= b)
-		*sd = (__u32)(pow(2, 20.) * b);
+		//*sd = (__u32)(pow(2, 20.) * b);
+		*sd = (__u32)((2^20) * b);
 	else
-		*sd = (__u32)(pow(2, 20.) * b + (1 << 22);
+		//*sd = (__u32)(pow(2, 20.) * b + (1 << 22);
+		*sd = (__u32)((2 ^ 20) * b + (1 << 22));
 	qm->reg[0x06] &= 0x40;
 	qm->reg[0x06] |= N;
-	status = qm_write(qm, 0x06, qm->reg[0x06]);
+	status = qm_write(qm, bus, 0x06, qm->reg[0x06]);
 	if (status)
 		return status;
 	
 	qm->reg[0x07] &= 0xf0;
 	qm->reg[0x07] |= A & 0x0f;
-	status = qm_write(qm, 0x07, qm->reg[0x07]);
+	status = qm_write(qm, bus, 0x07, qm->reg[0x07]);
 	if (status)
 		return status;
 
-#endif
 	return status;
 }
 
@@ -478,6 +481,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
 	}
+	printk(KERN_DEBUG "qm_get_locked %d status=0x%x", locked, status);
 	if (!locked)
 		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
 	

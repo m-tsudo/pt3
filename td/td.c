@@ -77,8 +77,8 @@ last:
 int
 main(int argc, char * const argv[])
 {
-	test_open(DEV3, "dev3.ts");
+	test_open(DEV0, "dev0.ts");
 	test_open(DEV2, "dev2.ts");
 	test_open(DEV1, "dev1.ts");
-	test_open(DEV0, "dev0.ts");
+	test_open(DEV3, "dev3.ts");
 }

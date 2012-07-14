@@ -138,7 +138,7 @@ pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
 #endif
 
 	writel(data, base + 0x0c);
-	printk(KERN_DEBUG "set_test_mode value=0x%x", readl(base + 0x0c));
+	printk(KERN_DEBUG "set_test_mode.");
 }
 
 void

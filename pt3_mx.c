@@ -59,6 +59,23 @@ mx_write(PT3_MX *mx, PT3_BUS *bus, __u8 *data, size_t size)
 }
 
 static void
+mx_read(PT3_MX *mx, PT3_BUS *bus, __u8 addr, __u8 *data)
+{
+	__u8 write[2];
+	write[0] = 0xfb;
+	write[1] = addr;
+
+	pt3_tc_write_tuner_without_addr(mx->tc, bus, write, sizeof(write));
+	pt3_tc_read_tuner_without_addr(mx->tc, bus, data, 1);
+}
+
+static void
+mx_get_register(PT3_MX *mx, PT3_BUS *bus, __u8 addr, __u8 *data)
+{
+	mx_read(mx, bus, addr, data);
+}
+
+static void
 mx_rftune(__u8 *data, __u32 *size, __u32 freq)
 {
 	__u32 dig_rf_freq ,temp ,frac_divider, khz, mhz, i;
@@ -207,6 +224,71 @@ mx_set_sleep_mode(PT3_MX *mx, PT3_BUS *bus, int sleep)
 	return status;
 }
 
+static __u8 FREQ_TABLE[][3] = {
+	{   2,  0,   3 },
+	{  12,  1,  22 },
+	{  21,  0,  12 },
+	{  62,  1,  63 },
+	{ 112,  0,  62 }
+};
+
+void
+pt3_mx_get_channel_frequency(PT3_MX *mx, __u32 channel, int *catv, __u32 *number, __u32 *freq)
+{
+	__u32 i;
+	__s32 freq_offset = 0;
+
+	if (12 <= channel)
+		freq_offset += 2;
+	if (17 <= channel)
+		freq_offset -= 2;
+	if (63 <= channel)
+		freq_offset += 2;
+	*freq = 93 + channel * 6 + freq_offset;
+
+	for (i = 0; i < sizeof(FREQ_TABLE) / sizeof(*FREQ_TABLE); i++) {
+		if (channel <= FREQ_TABLE[i][0]) {
+			*catv = FREQ_TABLE[i][1] ? 1: 0;
+			*number = channel + FREQ_TABLE[i][2] - FREQ_TABLE[i][0];
+			break;
+		}
+	}
+}
+
+static void
+mx_set_frequency(PT3_MX *mx, PT3_BUS *bus, __u32 freq)
+{
+	mx_tuner_rftune(mx, bus, freq);
+}
+
+static void
+mx_rfsynth_lock_status(PT3_MX *mx, PT3_BUS *bus, int *locked)
+{
+	__u8 data;
+
+	*locked = 0;
+
+	mx_get_register(mx, bus, 0x16, &data);
+
+	data &= 0x0c;
+	if (data == 0x0c)
+		*locked = 1;
+}
+
+static void
+mx_refsynth_lock_status(PT3_MX *mx, PT3_BUS *bus, int *locked)
+{
+	__u8 data;
+
+	*locked = 0;
+
+	mx_get_register(mx, bus, 0x16, &data);
+
+	data &= 0x03;
+	if (data == 0x03)
+		*locked = 1;
+}
+
 __u8
 pt3_mx_address(__u32 index)
 {
@@ -235,31 +317,47 @@ pt3_mx_set_sleep(PT3_MX *mx, int sleep)
 }
 
 STATUS
+pt3_mx_get_locked1(PT3_MX *mx, PT3_BUS *bus, int *locked)
+{
+	mx_rfsynth_lock_status(mx, bus, locked);
+
+	return STATUS_OK;
+}
+
+STATUS
+pt3_mx_get_locked2(PT3_MX *mx, PT3_BUS *bus, int *locked)
+{
+	mx_refsynth_lock_status(mx, bus, locked);
+
+	return STATUS_OK;
+}
+
+STATUS
 pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 {
 	STATUS status;
-#if 0
 	int catv, locked1, locked2;
 	__u32 number, freq;
-	double real_freq;
+	__s64 real_freq;
 	struct timeval begin, now;
 
-	status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_MANUAL);
+	status = pt3_tc_set_agc_t(mx->tc, NULL, PT3_TC_AGC_MANUAL);
 	if (status)
 		return status;
 	
-	pt3_mx_get_channel_freq(mx, channel, &catv, &number, &freq);
+	pt3_mx_get_channel_frequency(mx, channel, &catv, &number, &freq);
 
-	real_freq = (7 * freq + 1 + offset) * 1000000.0 /7.0;
+	//real_freq = (7 * freq + 1 + offset) * 1000000.0 /7.0;
+	real_freq = (7 * freq + 1 + offset) * 1000000 /7;
 
-	mx_set_frequency(mx, (__u32)real_freq);
+	mx_set_frequency(mx, NULL, (__u32)real_freq);
 
 	do_gettimeofday(&begin);
 	locked1 = locked2 = 0;
 	while (1) {
 		do_gettimeofday(&now);
-		mx_get_locked1(mx, &locked1);
-		mx_get_locked2(mx, &locked2);
+		pt3_mx_get_locked1(mx, NULL, &locked1);
+		pt3_mx_get_locked2(mx, NULL, &locked2);
 
 		if (locked1 && locked2)
 			break;
@@ -268,13 +366,13 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
 	}
+	printk(KERN_DEBUG "mx_get_locked1 %d locked2 %d", locked1, locked2);
 	if (!(locked1 && locked2))
 		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
 	
-	status = pt3_tc_set_agc_t(mx->tc, PT3_TC_AGC_AUTO);
+	status = pt3_tc_set_agc_t(mx->tc, NULL, PT3_TC_AGC_AUTO);
 	if (status)
 		return status;
-#endif
 
 	return status;
 }

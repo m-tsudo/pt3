@@ -24,6 +24,7 @@ STATUS pt3_tc_write(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32
 STATUS pt3_tc_write_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 size);
 STATUS pt3_tc_write_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, const __u8 *data, __u32 size);
 STATUS pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size);
+STATUS pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size);
 STATUS pt3_tc_init_s(PT3_TC *tc, PT3_BUS *bus);
 STATUS pt3_tc_init_t(PT3_TC *tc, PT3_BUS *bus);
 STATUS pt3_tc_set_powers(PT3_TC *tc, PT3_BUS *bus, int tuner, int amp);

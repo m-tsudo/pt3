@@ -145,8 +145,9 @@ pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size)
 		bus->buf = data;
 		bus->buf_pos = 0;
 		bus->buf_size = size;
+		printk(KERN_ERR "PT3: bus read set buff %p size=%d.", data, size);
 	} else
-		printk(KERN_ERR "PT3: buff is already exists.");
+		printk(KERN_ERR "PT3: bus read buff is already exists.");
 
 	return index;
 }
@@ -155,13 +156,14 @@ void
 pt3_bus_push_read_data(PT3_BUS *bus, __u8 data)
 {
 	if (bus->buf != NULL) {
-		bus->buf[bus->buf_pos] = data;
-		bus->buf_pos++;
 		if (bus->buf_pos >= bus->buf_size) {
-			printk(KERN_ERR "PT3: buffer over run.");
+			printk(KERN_ERR "PT3: buffer over run. pos=%d", bus->buf_pos);
 			bus->buf_pos = 0;
 		}
+		bus->buf[bus->buf_pos] = data;
+		bus->buf_pos++;
 	}
+	printk(KERN_DEBUG "bus read data=0x%x inst=0x%x", data, bus->insts[0]);
 }
 
 __u8

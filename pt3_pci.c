@@ -232,6 +232,9 @@ set_frequency(int isdb, PT3_TUNER *tuner, __u32 channel, __s32 offset)
 {
 	STATUS status;
 
+	printk(KERN_DEBUG "set_freq isdb=%d tuner_no=%d channel=%d offset=%d",
+			isdb, tuner->tuner_no, channel, offset);
+
 	switch (isdb) {
 	case PT3_ISDB_S :
 		status = pt3_qm_set_frequency(tuner->qm, channel, offset);
