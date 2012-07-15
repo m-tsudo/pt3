@@ -72,8 +72,9 @@ qm_read(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 *data)
 {
 	STATUS status;
 	if ((addr == 0x00 ) || (addr == 0x0d)) {
-		printk(KERN_DEBUG "qm_read addr=0x%x data=0x%x", addr, *data);
 		status = pt3_tc_read_tuner(qm->tc, bus, addr, data, 1);
+		if (!bus)
+			printk(KERN_DEBUG "qm_read addr=0x%02x data=0x%02x", addr, *data);
 	} else 
 		status = STATUS_OK;
 
@@ -267,7 +268,6 @@ qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf, __u32 channel)
 	status = qm_tuning(qm, bus, &sd, channel);
 	if (status)
 		return status;
-	printk(KERN_DEBUG "sd = 0x%x", sd);
 
 	if (lpf) {
 		i_data = qm->reg[0x08] & 0xf0;
@@ -362,16 +362,9 @@ pt3_qm_set_sleep(PT3_QM *qm, int sleep)
 {
 	STATUS status;
 	PT3_TS_PIN_MODE mode;
-	//PT3_TS_PINS_MODE pins;
 
 	mode = sleep ? PT3_TS_PIN_MODE_LOW : PT3_TS_PIN_MODE_NORMAL;
 	qm->param.standby = sleep;
-
-/*	// 0.96から削除された
-	pins.clock_data = mode;
-	pins.byte = mode;
-	pins.valid = mode;
-*/
 
 	if (sleep) {
 		status = pt3_tc_set_agc_s(qm->tc, NULL, PT3_TC_AGC_MANUAL);
@@ -379,9 +372,7 @@ pt3_qm_set_sleep(PT3_QM *qm, int sleep)
 			return status;
 		qm_set_sleep_mode(qm, NULL);
 		pt3_tc_set_sleep_s(qm->tc, NULL, sleep);
-		//pt3_tc_set_ts_pins_mode_s(qm->tc, &pins);	// 0.96から削除された
 	} else {
-		//pt3_tc_set_ts_pins_mode_s(qm->tc, &pins);	// 0.96から削除された
 		pt3_tc_set_sleep_s(qm->tc, NULL, sleep);
 		qm_set_sleep_mode(qm, NULL);
 	}
@@ -446,7 +437,7 @@ pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 		return status;
 	qm_sleep(qm, bus, qm->param.lpf_wait_time);
 
-	for (i = 0; i < 0x20; i++) {
+	for (i = 0; i < sizeof(flag); i++) {
 		if (flag[i] == 1) {
 			status = qm_write(qm, bus, i, qm->reg[i]);
 			if (status)

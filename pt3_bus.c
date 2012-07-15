@@ -86,7 +86,7 @@ datan(PT3_BUS *bus, size_t index, __u32 n)
 		data |= bus->buf[index + i];
 	}
 
-	return 0;
+	return data;
 }
 
 void
@@ -145,7 +145,6 @@ pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size)
 		bus->buf = data;
 		bus->buf_pos = 0;
 		bus->buf_size = size;
-		printk(KERN_ERR "PT3: bus read set buff %p size=%d.", data, size);
 	} else
 		printk(KERN_ERR "PT3: bus read buff is already exists.");
 
@@ -163,7 +162,9 @@ pt3_bus_push_read_data(PT3_BUS *bus, __u8 data)
 		bus->buf[bus->buf_pos] = data;
 		bus->buf_pos++;
 	}
-	printk(KERN_DEBUG "bus read data=0x%x inst=0x%x", data, bus->insts[0]);
+#if 1
+	printk(KERN_DEBUG "bus read data=0x%02x", data);
+#endif
 }
 
 __u8

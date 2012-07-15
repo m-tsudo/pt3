@@ -16,6 +16,4 @@
 #define REGS_STATUS		0x50	/* + 0x18*	R		DMA / FIFO / TS */
 #define REGS_TS_ERR		0x54	/* + 0x18*	R		TS */
 
-#define REGS_I2C_INST 2048		/* I2C instructions */
-
 #endif

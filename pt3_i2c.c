@@ -21,7 +21,7 @@
 #include "pt3_pci.h"
 #include "pt3_i2c.h"
 
-#define DATA_OFFSET 0
+#define DATA_OFFSET 2048
 
 static void
 wait(PT3_I2C *i2c, __u32 *data)
@@ -53,11 +53,11 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 
 	wait(i2c, &data);
 
-	//printk(KERN_DEBUG "i2c status 0x%lx", data);
-
 	a = BIT_SHIFT_MASK(data, 1, 2);
 	if (ack != NULL)
 		*ack = a;
+	if (a)
+		printk(KERN_DEBUG "fail i2c run_code status 0x%x", data);
 
 	return BIT_SHIFT_MASK(data, 1, 2) ? STATUS_I2C_ERROR : STATUS_OK;
 }
@@ -76,6 +76,9 @@ pt3_i2c_copy(PT3_I2C *i2c, PT3_BUS *bus)
 						i2c->bar[1].regs, dst, src, bus->inst_pos);
 #endif
 	memcpy(dst, src, bus->inst_pos);
+#if 0
+	printk(KERN_DEBUG "i2c_copy src=0x%02x dst=0x%02x", *src, readb(dst));
+#endif
 }
 
 STATUS
@@ -95,13 +98,13 @@ pt3_i2c_run(PT3_I2C *i2c, PT3_BUS *bus, __u32 *ack, int copy)
 	rsize = bus->read_addr;
 
 	for (i = 0; i < rsize; i++) {
-		pt3_bus_push_read_data(bus, readb(i2c->bar[2].regs + DATA_OFFSET));
+		pt3_bus_push_read_data(bus, readb(i2c->bar[1].regs + DATA_OFFSET + i));
 	}
 #if 0
 	if (rsize > 0) {
 		for (i = 1; i < 10; i++) {
 			printk(KERN_DEBUG "bus_read_data + %d = 0x%x inst = 0x%x",
-					i, readb(i2c->bar[2].regs + DATA_OFFSET + i),
+					i, readb(i2c->bar[1].regs + DATA_OFFSET + i),
 					bus->insts[i]);
 		}
 	}

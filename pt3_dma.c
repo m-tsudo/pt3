@@ -185,6 +185,12 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, int look_ready)
 	__u8 *p;
 
 	mutex_lock(&dma->lock);
+
+#if 0
+	printk(KERN_DEBUG "dma_copy ts_pos=0x%x data_pos=0x%x",
+				dma->ts_pos, dma->ts_info[dma->ts_pos].data_pos);
+#endif
+
 	remain = size;
 	while (1) {
 		if (remain <= 0)
@@ -201,7 +207,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, int look_ready)
 		} else {
 			csize = (page->size - page->data_pos);
 		}
-		if (copy_to_user(buf, page->data, csize)) {
+		if (copy_to_user(buf, &page->data[page->data_pos], csize)) {
 			mutex_unlock(&dma->lock);
 			return -EFAULT;
 		}

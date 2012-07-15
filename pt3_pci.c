@@ -160,6 +160,30 @@ out_err_regbase:
 	return -1;
 }
 
+static void
+dump_bar(void __iomem *regs)
+{
+	__u32 i, j;
+	__u8 data[512];
+
+	memset(data, 0, sizeof(data));
+	for (i = 0; i < 4096 / sizeof(data); i++) {
+		memcpy(data, regs + (i * sizeof(data)), sizeof(data));
+		for (j = 0; j < sizeof(data) / 16; j++) {
+			printk(KERN_DEBUG
+				"0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x ",
+			 	data[i*sizeof(data)+j*16+ 0], data[i*sizeof(data)+j*16+ 1],
+			 	data[i*sizeof(data)+j*16+ 2], data[i*sizeof(data)+j*16+ 3],
+			 	data[i*sizeof(data)+j*16+ 4], data[i*sizeof(data)+j*16+ 5],
+			 	data[i*sizeof(data)+j*16+ 6], data[i*sizeof(data)+j*16+ 7],
+			 	data[i*sizeof(data)+j*16+ 8], data[i*sizeof(data)+j*16+ 9],
+			 	data[i*sizeof(data)+j*16+10], data[i*sizeof(data)+j*16+11],
+			 	data[i*sizeof(data)+j*16+12], data[i*sizeof(data)+j*16+13],
+			 	data[i*sizeof(data)+j*16+14], data[i*sizeof(data)+j*16+15]);
+		}
+	}
+}
+
 static int
 ep4c_init(PT3_DEVICE *dev_conf)
 {
@@ -174,13 +198,14 @@ ep4c_init(PT3_DEVICE *dev_conf)
 		printk(KERN_ERR "PTn needs 3.\n");
 		return -1;
 	}
-	printk(KERN_DEBUG "Check PTn is passed.\n");
+	printk(KERN_DEBUG "Check PTn is passed. n=%d\n", dev_conf->version.ptn);
 
 	if (dev_conf->version.fpga != 0x04) {
 		printk(KERN_ERR "this FPGA version not supported\n");
 		return -1;
 	}
-	printk(KERN_DEBUG "Check FPGA version is passed.");
+	printk(KERN_DEBUG "Check FPGA version is passed. version=0x%x",
+						dev_conf->version.fpga);
 
 	val = readl(dev_conf->bar[0].regs + REGS_SYSTEM_R);
 	dev_conf->system.can_transport_ts = ((val >> 5) & 0x01);
@@ -274,7 +299,7 @@ set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 static int
 init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 {
-	int status;
+	int status, i;
 	PT3_BUS *bus;
 
 	pt3_qm_init_reg_param(tuner->qm);
@@ -286,9 +311,12 @@ init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 		pt3_bus_end(bus);
 		status = pt3_i2c_run(i2c, bus, NULL, 1);
 		free_pt3_bus(bus);
-		if (status)
+		if (status) {
+			printk(KERN_DEBUG "fail init_tuner dummy reset. status=0x%x", status);
+			for (i = 0; i < bus->inst_pos; i++)
+				printk(KERN_DEBUG "instruction[%d] = 0x%x", i, bus->insts[i]);
 			return status;
-		printk(KERN_DEBUG "init_tuner dummy reset");
+		}
 	}
 
 	{
@@ -303,9 +331,12 @@ init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 		pt3_bus_end(bus);
 		status = pt3_i2c_run(i2c, bus, NULL, 1);
 		free_pt3_bus(bus);
-		if (status)
+		if (status) {
+			printk(KERN_DEBUG "fail init_tuner qm init. status=0x%x", status);
+			for (i = 0; i < bus->inst_pos; i++)
+				printk(KERN_DEBUG "instruction[%d] = 0x%x", i, bus->insts[i]);
 			return status;
-		printk(KERN_DEBUG "init_tuner qm init");
+		}
 	}
 
 	return status;
@@ -322,21 +353,24 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
 		status = pt3_tc_init_s(tuner->tc_s, NULL);
-		printk(KERN_DEBUG "tc_init_s[%d] status=0x%x", i, status);
+		if (status)
+			printk(KERN_DEBUG "tc_init_s[%d] status=0x%x", i, status);
 	}
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
 		status = pt3_tc_init_t(tuner->tc_t, NULL);
-		printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
+		if (status)
+			printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
 	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
-	if (status)
+	if (status) {
+		printk(KERN_DEBUG "fail set powers.");
 		goto last;
-	printk(KERN_DEBUG "set powers.");
+	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(200));	
 
@@ -347,21 +381,24 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
 		status = pt3_tc_set_ts_pins_mode_s(tuner->tc_s, NULL, &pins);
-		printk(KERN_DEBUG "set ts pins mode s [%d] status=0x%x", i, status);
+		if (status)
+			printk(KERN_DEBUG "set ts pins mode s [%d] status=0x%x", i, status);
 	}
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
 		status = pt3_tc_set_ts_pins_mode_t(tuner->tc_t, NULL, &pins);
-		printk(KERN_DEBUG "set ts pins mode t [%d] status=0x%x", i, status);
+		if (status)
+			printk(KERN_DEBUG "set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(200));	
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
-		if (status)
+		if (status) {
+			printk(KERN_DEBUG "fail init_tuner %d status=0x%x", i, status);
 			goto last;
-		printk(KERN_DEBUG "init_tuner %d", i);
+		}
 	}
 
 	if (bus->inst_addr < 4096)
@@ -370,14 +407,19 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 #if 0
 	bus->inst_addr = PT3_BUS_INST_ADDR1;
 	status = pt3_i2c_run(dev_conf->i2c, bus, NULL, 0);
-	if (status)
+	if (status) {
+		printk(KERN_DEBUG "fail i2c_run. status=0x%x", status);
+		for (i = 0; i < bus->inst_pos; i++)
+			printk(KERN_DEBUG "instruction[%d] = 0x%x", i, bus->insts[i]);
 		goto last;
+	}
 #endif
 
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
-	if (status)
+	if (status) {
+		printk(KERN_DEBUG "fail tc_set_powers,");
 		goto last;
-	printk(KERN_DEBUG "tc_set_powers,");
+	}
 
 last:
 	return status;
@@ -418,11 +460,11 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 			status = set_tuner_sleep(j, &dev_conf->tuner[i], 0);
 			if (status)
 				goto last;
-			/*
 			status = set_frequency(j, &dev_conf->tuner[i], channel, 0);
-			if (status)
+			if (status) {
+				printk(KERN_DEBUG "fail set_frequency. status=0x%x", status);
 				goto last;
-			*/
+			}
 			status = set_tuner_sleep(j, &dev_conf->tuner[i], 1);
 			if (status)
 				goto last;
@@ -688,7 +730,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 				(class_revision & 0xFF));
 		return -EIO;
 	}
-	printk(KERN_DEBUG "Revision check passwd.");
+	printk(KERN_DEBUG "Revision check passed. revision=0x%x", class_revision & 0xff);
 
 	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
 	if (!(cmd & PCI_COMMAND_MASTER)) {
@@ -714,6 +756,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		goto out_err_regbase;
 	if (setup_bar(pdev, &dev_conf->bar[1], 2))
 		goto out_err_regbase;
+	// dump_bar(dev_conf->bar[1].regs);
 
 	// 初期化処理
 	if(ep4c_init(dev_conf)){
@@ -869,7 +912,7 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 			channel = dev_conf->channel[lp];
 			if (channel->dma->enabled)
 				pt3_dma_set_enabled(channel->dma, 0);
-			set_tuner_sleep(channel->type, channel->tuner, 0);
+			set_tuner_sleep(channel->type, channel->tuner, 1);
 		}
 		set_lnb(dev_conf, 0);
 		pt3_i2c_reset(dev_conf->i2c);

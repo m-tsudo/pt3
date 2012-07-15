@@ -103,8 +103,10 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 	if (!bus)
 		free_pt3_bus(p);
 
+#if 0
 	printk(KERN_DEBUG "read_tuner_without tc_addr=0x%x tuner_addr=0x%x",
 			tc->tc_addr, tc->tuner_addr);
+#endif
 
 	return status;
 }
@@ -197,8 +199,10 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 	if (!bus)
 		free_pt3_bus(p);
 
+#if 0
 	printk(KERN_DEBUG "read_tuner tc_addr=0x%x tuner_addr=0x%x",
 			tc->tc_addr, tc->tuner_addr);
+#endif
 
 	return status;
 }
@@ -479,6 +483,8 @@ time_diff(struct timeval *st, struct timeval *et)
 {
 	__u32 diff;
 	diff = (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
+#if 0
 	printk(KERN_DEBUG "time diff = %d\n", diff / 1000);
+#endif
 	return diff / 1000;
 }
