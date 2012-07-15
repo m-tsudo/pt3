@@ -16,9 +16,12 @@
 int
 test_open(const char* src, const char* dst)
 {
+	FREQUENCY freq;
 	char buf[1024 * 3];
 	size_t rsize;
 	int fd_src, fd_dst, i, status, rc;
+
+	freq.channel = 1;
 
 	fd_src = open(src, O_RDONLY);
 	if (fd_src <= 0) {
@@ -37,12 +40,16 @@ test_open(const char* src, const char* dst)
 	if (rc < 0)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
-	goto last;
 
-	if ((status >> 24) != 0x47) {
-		printf("TS sync byte error\n");
-		goto last;
-	}
+	rc = ioctl(fd_src, SET_CHANNEL, freq);
+	if (rc)
+		fprintf(stderr, "set channel 0x%x\n", rc);
+
+	rc = ioctl(fd_src, GET_STATUS, &status);
+	if (rc < 0)
+		perror("fail get status");
+	printf("status = 0x%08x\n", status);
+	goto last;
 
 	rc = ioctl(fd_src, SET_TEST_MODE_ON, 0);
 	if (rc < 0)
@@ -78,7 +85,7 @@ int
 main(int argc, char * const argv[])
 {
 	test_open(DEV0, "dev0.ts");
-	test_open(DEV2, "dev2.ts");
 	test_open(DEV1, "dev1.ts");
+	test_open(DEV2, "dev2.ts");
 	test_open(DEV3, "dev3.ts");
 }

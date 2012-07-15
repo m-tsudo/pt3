@@ -2,8 +2,7 @@
 #define __PT3_IOCTL_H
 
 typedef	struct	_frequency{
-	int		frequencyno ;			// ¼þÇÈ¿ô¥Æ¡¼¥Ö¥ëÈÖ¹æ
-	int		slot ;					// ¥¹¥í¥Ã¥ÈÈÖ¹æ¡¿²Ã»»¤¹¤ë¼þÇÈ¿ô
+	int channel;
 }FREQUENCY;
 
 #define		SET_CHANNEL	_IOW(0x8d, 0x01, FREQUENCY)

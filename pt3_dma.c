@@ -120,7 +120,7 @@ dma_check_page_descriptor(PT3_DMA *dma)
 void __iomem *
 get_base_addr(PT3_DMA *dma)
 {
-	return dma->i2c->bar[0].regs + REGS_DMA_DESC_L + 0x18 * dma->real_index;
+	return dma->i2c->bar[0].regs + REGS_DMA_DESC_L + (0x18 * dma->real_index);
 }
 
 void
@@ -152,7 +152,7 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 	start_addr = dma->desc_info->addr;
 
 	if (enabled) {
-		printk(KERN_DEBUG "enable dma real_index=%d start_addr=%llx offset=%d",
+		printk(KERN_DEBUG "enable dma real_index=%d start_addr=%llx offset=0x%x",
 				dma->real_index, start_addr, base - dma->i2c->bar[0].regs);
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
@@ -205,8 +205,10 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, int look_ready)
 			mutex_unlock(&dma->lock);
 			return -EFAULT;
 		}
+#if 0
 		printk(KERN_DEBUG "copy_to_user size=%d ts_pos=%d data_size = %d data_pos=%d",
 				csize, dma->ts_pos, page->size, page->data_pos);
+#endif
 		remain -= csize;
 		page->data_pos += csize;
 		if (page->data_pos >= page->size) {

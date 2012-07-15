@@ -95,8 +95,17 @@ pt3_i2c_run(PT3_I2C *i2c, PT3_BUS *bus, __u32 *ack, int copy)
 	rsize = bus->read_addr;
 
 	for (i = 0; i < rsize; i++) {
-		pt3_bus_push_read_data(bus, readl(i2c->bar[2].regs + DATA_OFFSET));
+		pt3_bus_push_read_data(bus, readb(i2c->bar[2].regs + DATA_OFFSET));
 	}
+#if 0
+	if (rsize > 0) {
+		for (i = 1; i < 10; i++) {
+			printk(KERN_DEBUG "bus_read_data + %d = 0x%x inst = 0x%x",
+					i, readb(i2c->bar[2].regs + DATA_OFFSET + i),
+					bus->insts[i]);
+		}
+	}
+#endif
 
 	mutex_unlock(&i2c->lock);
 

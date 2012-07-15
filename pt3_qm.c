@@ -159,14 +159,42 @@ static __u32 FREQ_TABLE[9][3] = {
 	{  950000, 0, 0 }
 };
 
+static __u32 SD_TABLE[24][2][3] = {
+	{{0x38fae1, 0xd, 0x5},{0x39fae1, 0xd, 0x5},},
+	{{0x3f570a, 0xe, 0x3},{0x570a, 0xe, 0x3},},
+	{{0x5b333, 0xe, 0x5},{0x6b333, 0xe, 0x5},},
+	{{0x3c0f5c, 0xf, 0x4},{0x3d0f5c, 0xf, 0x4},},
+	{{0x26b85, 0xf, 0x6},{0x36b85, 0xf, 0x6},},
+	{{0x38c7ae, 0x10, 0x5},{0x39c7ae, 0x10, 0x5},},
+	{{0x3f23d7, 0x11, 0x3},{0x23d7, 0x11, 0x3},},
+	{{0x58000, 0x11, 0x5},{0x68000, 0x11, 0x5},},
+	{{0x3bdc28, 0x12, 0x4},{0x3cdc28, 0x12, 0x4},},
+	{{0x23851, 0x12, 0x6},{0x33851, 0x12, 0x6},},
+	{{0x38947a, 0x13, 0x5},{0x39947a, 0x13, 0x5},},
+	{{0x3ef0a3, 0x14, 0x3},{0x3ff0a3, 0x14, 0x3},},
+	{{0x3c8000, 0x16, 0x4},{0x3d8000, 0x16, 0x4},},
+	{{0x48000, 0x16, 0x6},{0x58000, 0x16, 0x6},},
+	{{0x3c8000, 0x17, 0x5},{0x3d8000, 0x17, 0x5},},
+	{{0x48000, 0x18, 0x3},{0x58000, 0x18, 0x3},},
+	{{0x3c8000, 0x18, 0x6},{0x3d8000, 0x18, 0x6},},
+	{{0x48000, 0x19, 0x4},{0x58000, 0x19, 0x4},},
+	{{0x3c8000, 0x1a, 0x3},{0x3d8000, 0x1a, 0x3},},
+	{{0x48000, 0x1a, 0x5},{0x58000, 0x1a, 0x5},},
+	{{0x3c8000, 0x1b, 0x4},{0x3d8000, 0x1b, 0x4},},
+	{{0x48000, 0x1b, 0x6},{0x58000, 0x1b, 0x6},},
+	{{0x3c8000, 0x1c, 0x5},{0x3d8000, 0x1c, 0x5},},
+	{{0x48000, 0x1d, 0x3},{0x58000, 0x1d, 0x3},},
+};
+
 static STATUS
-qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
+qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd, __u32 channel)
 {
 	STATUS status;
 	PT3_QM_PARAM *param = &qm->param;
 	__u8 i_data;
-	__u32 i, a, N, A;
-	__s32 M, b;	// double
+	__u32 index, i, N, A;
+	// __u32 a;
+	//double M, b;	// double
 
 	qm->reg[0x08] &= 0xf0;
 	qm->reg[0x08] |= 0x09;
@@ -185,6 +213,7 @@ qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
 		}
 	}
 
+#if 0
 	//M = (double)(param->channel_freq) / (double)(param->crystal_freq);
 	M = param->channel_freq / param->crystal_freq;
 	//a = (__s32)(M + 0.5);
@@ -200,6 +229,17 @@ qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
 	else
 		//*sd = (__u32)(pow(2, 20.) * b + (1 << 22);
 		*sd = (__u32)((2 ^ 20) * b + (1 << 22));
+#else
+	index = pt3_tc_index(qm->tc);
+	*sd = SD_TABLE[channel][index][0];
+	N = SD_TABLE[channel][index][1];
+	A = SD_TABLE[channel][index][2];
+	printk(KERN_DEBUG "channel=%d index=%d sd=0x%x N=0x%x A=0x%x",
+		channel, index,
+		SD_TABLE[channel][index][0],
+		SD_TABLE[channel][index][1],
+		SD_TABLE[channel][index][2]);
+#endif
 	qm->reg[0x06] &= 0x40;
 	qm->reg[0x06] |= N;
 	status = qm_write(qm, bus, 0x06, qm->reg[0x06]);
@@ -216,7 +256,7 @@ qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd)
 }
 
 static STATUS
-qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf)
+qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf, __u32 channel)
 {
 	PT3_QM_PARAM *param = &qm->param;
 	__u8 i_data;
@@ -224,9 +264,10 @@ qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf)
 	STATUS status;
 
 	sd = 0;
-	status = qm_tuning(qm, NULL, &sd);
+	status = qm_tuning(qm, bus, &sd, channel);
 	if (status)
 		return status;
+	printk(KERN_DEBUG "sd = 0x%x", sd);
 
 	if (lpf) {
 		i_data = qm->reg[0x08] & 0xf0;
@@ -277,7 +318,7 @@ qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf)
 		status = qm_write(qm, bus, 0x0c, i_data);
 		if (status)
 			return status;
-		qm_sleep(qm, bus, 1);
+		qm_sleep(qm, bus, 2);	// 1024usec
 
 		i_data = qm->reg[0x0c];
 		i_data |= 0x80;
@@ -455,14 +496,15 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	
 	pt3_qm_get_channel_freq(channel, &bs, &number, &freq);
 	freq_khz = freq * 10 + offset;
-
 	if (pt3_tc_index(qm->tc) == 0)
 		freq_khz -= 500;
 	else
 		freq_khz += 500;
 	qm->param.channel_freq = freq_khz;
+	printk(KERN_DEBUG "frequency %d Khz", freq_khz);
 
-	status = qm_local_lpf_tuning(qm, NULL, 1);
+
+	status = qm_local_lpf_tuning(qm, NULL, 1, channel);
 	if (status)
 		return status;
 
@@ -476,7 +518,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 		if (locked)
 			break;
 
-		if (time_diff(&begin, &now) >= 100)
+		if (time_diff(&begin, &now) >= 1000)
 			break;
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	

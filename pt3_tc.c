@@ -70,6 +70,8 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 	size_t rindex;
 	PT3_BUS *p;
 
+	memset(buf, 0, size);
+
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
 		printk(KERN_ERR "out of memory.");
@@ -81,11 +83,11 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 	pt3_bus_write(p, &buf[0], 1);
 	buf[0] = TC_THROUGH;
 	pt3_bus_write(p, &buf[0], 1);
-	buf[0] = tc->tuner_addr << 1 | 0x01;
+	buf[0] = (tc->tuner_addr << 1) | 0x01;
 	pt3_bus_write(p, &buf[0], 1);
 
 	pt3_bus_start(p);
-	buf[0] = tc->tc_addr << 1 | 0x01;
+	buf[0] = (tc->tc_addr << 1) | 0x01;
 	rindex = pt3_bus_read(p, &buf[0], size);
 	pt3_bus_stop(p);
 
@@ -96,11 +98,13 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
 		for (i = 0; i < size; i++)
 			data[i] = pt3_bus_data1(p, rindex + i);
-		printk(KERN_DEBUG "tuner_read_without_addr");
 	}
 
 	if (!bus)
 		free_pt3_bus(p);
+
+	printk(KERN_DEBUG "read_tuner_without tc_addr=0x%x tuner_addr=0x%x",
+			tc->tc_addr, tc->tuner_addr);
 
 	return status;
 }
@@ -150,6 +154,8 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 	size_t rindex;
 	PT3_BUS *p;
 
+	memset(buf, 0, size);
+
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
 		printk(KERN_ERR "out of memory.");
@@ -170,11 +176,11 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 	pt3_bus_write(p, &buf[0], 1);
 	buf[0] = TC_THROUGH;
 	pt3_bus_write(p, &buf[0], 1);
-	buf[0] = tc->tuner_addr << 1 | 1;
+	buf[0] = (tc->tuner_addr << 1) | 1;
 	pt3_bus_write(p, &buf[0], 1);
 
 	pt3_bus_start(p);
-	buf[0] = tc->tc_addr << 1 | 1;
+	buf[0] = (tc->tc_addr << 1) | 1;
 	pt3_bus_write(p, &buf[0], 1);
 	rindex = pt3_bus_read(p, &buf[0], size);
 	pt3_bus_stop(p);
@@ -186,11 +192,13 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
 		for (i = 0; i < size; i++)
 			data[i] = pt3_bus_data1(p, rindex + i);
-		printk(KERN_DEBUG "tuner_read");
 	}
 
 	if (!bus)
 		free_pt3_bus(p);
+
+	printk(KERN_DEBUG "read_tuner tc_addr=0x%x tuner_addr=0x%x",
+			tc->tc_addr, tc->tuner_addr);
 
 	return status;
 }
@@ -295,7 +303,7 @@ pt3_tc_set_powers(PT3_TC *tc, PT3_BUS *bus, int tuner, int amp)
 	__u8 tuner_power = tuner ? 0x03 : 0x02;
 	__u8 amp_power = amp ? 0x03 : 0x02;
 
-	__u8 data = tuner_power << 6 | 0x01 << 4 | amp_power << 2 | 0x01 << 0;
+	__u8 data = (tuner_power << 6) | (0x01 << 4) | (amp_power << 2) | 0x01 << 0;
 
 	status = pt3_tc_write(tc, bus, 0x1e, &data, 1);
 
@@ -382,8 +390,8 @@ pt3_tc_set_ts_pins_mode_s(PT3_TC *tc, PT3_BUS *bus, PT3_TS_PINS_MODE *mode)
 	if (valid)
 		valid++;
 
-	data[0] = 0x15 | valid << 6;
-	data[1] = 0x04 | clock_data << 4 | byte;
+	data[0] = 0x15 | (valid << 6);
+	data[1] = 0x04 | (clock_data << 4) | byte;
 
 	status = pt3_tc_write(tc, bus, 0x1c, &data[0], 1);
 	if (status)
@@ -413,7 +421,7 @@ pt3_tc_set_ts_pins_mode_t(PT3_TC *tc, PT3_BUS *bus, PT3_TS_PINS_MODE *mode)
 	if (valid)
 		valid++;
 
-	data = (__u8)(0x01 | clock_data << 6 | byte << 4 | valid << 2) ;
+	data = (__u8)(0x01 | (clock_data << 6) | (byte << 4) | (valid << 2)) ;
 	status = pt3_tc_write(tc, bus, 0x1d, &data, 1);
 
 	return status;
@@ -431,7 +439,7 @@ pt3_tc_write_slptim(PT3_TC *tc, PT3_BUS *bus, int sleep)
 	STATUS status;
 	__u8 data;
 
-	data = 1 << 7 | ((sleep ? 1 :0) <<4);
+	data = (1 << 7) | ((sleep ? 1 :0) <<4);
 	status = pt3_tc_write(tc, bus, 0x03, &data, 1);
 
 	return status;
@@ -469,5 +477,8 @@ free_pt3_tc(PT3_TC *tc)
 __u32
 time_diff(struct timeval *st, struct timeval *et)
 {
-	return (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
+	__u32 diff;
+	diff = (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
+	printk(KERN_DEBUG "time diff = %d\n", diff / 1000);
+	return diff / 1000;
 }

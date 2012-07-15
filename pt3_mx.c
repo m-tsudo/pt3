@@ -332,13 +332,39 @@ pt3_mx_get_locked2(PT3_MX *mx, PT3_BUS *bus, int *locked)
 	return STATUS_OK;
 }
 
+static __u32 REAL_TABLE[112] = {
+	0x58d3f49,0x5e8ccc9,0x6445a49,0x69fe7c9,0x6fb7549,
+	0x75702c9,0x7b29049,0x80e1dc9,0x869ab49,0x8c538c9,
+	0x920c649,0x97c53c9,0x9f665c9,0xa51f349,0xaad80c9,
+	0xb090e49,0xb649bc9,0xba1a4c9,0xbfd3249,0xc58bfc9,
+	0xcb44d49,0xd0fdac9,0xd6b6849,0xdc6f5c9,0xe228349,
+	0xe7e10c9,0xed99e49,0xf352bc9,0xf90b949,0xfec46c9,
+	0x1047d449,0x10a361c9,0x10feef49,0x115a7cc9,0x11b60a49,
+	0x121197c9,0x126d2549,0x12c8b2c9,0x13244049,0x137fcdc9,
+	0x13db5b49,0x1436e8c9,0x14927649,0x14ee03c9,0x15499149,
+	0x15a51ec9,0x1600ac49,0x165c39c9,0x16b7c749,0x171354c9,
+	0x176ee249,0x17ca6fc9,0x1825fd49,0x18818ac9,0x18dd1849,
+	0x1938a5c9,0x19943349,0x19efc0c9,0x1a4b4e49,0x1aa6dbc9,
+	0x1b026949,0x1b5df6c9,0x1bb98449,0x1c339649,0x1c8f23c9,
+	0x1ceab149,0x1d463ec9,0x1da1cc49,0x1dfd59c9,0x1e58e749,
+	0x1eb474c9,0x1f100249,0x1f6b8fc9,0x1fc71d49,0x2022aac9,
+	0x207e3849,0x20d9c5c9,0x21355349,0x2190e0c9,0x21ec6e49,
+	0x2247fbc9,0x22a38949,0x22ff16c9,0x235aa449,0x23b631c9,
+	0x2411bf49,0x246d4cc9,0x24c8da49,0x252467c9,0x257ff549,
+	0x25db82c9,0x26371049,0x26929dc9,0x26ee2b49,0x2749b8c9,
+	0x27a54649,0x2800d3c9,0x285c6149,0x28b7eec9,0x29137c49,
+	0x296f09c9,0x29ca9749,0x2a2624c9,0x2a81b249,0x2add3fc9,
+	0x2b38cd49,0x2b945ac9,0x2befe849,0x2c4b75c9,0x2ca70349,
+	0x2d0290c9,0x2d5e1e49,
+};
+
 STATUS
 pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 {
 	STATUS status;
 	int catv, locked1, locked2;
 	__u32 number, freq;
-	__s64 real_freq;
+	__u32 real_freq;
 	struct timeval begin, now;
 
 	status = pt3_tc_set_agc_t(mx->tc, NULL, PT3_TC_AGC_MANUAL);
@@ -348,9 +374,9 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 	pt3_mx_get_channel_frequency(mx, channel, &catv, &number, &freq);
 
 	//real_freq = (7 * freq + 1 + offset) * 1000000.0 /7.0;
-	real_freq = (7 * freq + 1 + offset) * 1000000 /7;
+	real_freq = REAL_TABLE[channel];
 
-	mx_set_frequency(mx, NULL, (__u32)real_freq);
+	mx_set_frequency(mx, NULL, real_freq);
 
 	do_gettimeofday(&begin);
 	locked1 = locked2 = 0;
@@ -361,7 +387,7 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 
 		if (locked1 && locked2)
 			break;
-		if (time_diff(&begin, &now) > 100)
+		if (time_diff(&begin, &now) > 1000)
 			break;
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
