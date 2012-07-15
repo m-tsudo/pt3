@@ -299,7 +299,7 @@ set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 static int
 init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 {
-	int status, i;
+	int status;
 	PT3_BUS *bus;
 
 	pt3_qm_init_reg_param(tuner->qm);
@@ -313,8 +313,6 @@ init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 		free_pt3_bus(bus);
 		if (status) {
 			printk(KERN_DEBUG "fail init_tuner dummy reset. status=0x%x", status);
-			for (i = 0; i < bus->inst_pos; i++)
-				printk(KERN_DEBUG "instruction[%d] = 0x%x", i, bus->insts[i]);
 			return status;
 		}
 	}
@@ -333,8 +331,6 @@ init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 		free_pt3_bus(bus);
 		if (status) {
 			printk(KERN_DEBUG "fail init_tuner qm init. status=0x%x", status);
-			for (i = 0; i < bus->inst_pos; i++)
-				printk(KERN_DEBUG "instruction[%d] = 0x%x", i, bus->insts[i]);
 			return status;
 		}
 	}
