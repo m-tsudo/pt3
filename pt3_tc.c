@@ -326,14 +326,14 @@ pt3_tc_set_agc_s(PT3_TC *tc, PT3_BUS *bus, PT3_TC_AGC agc)
 	if (status)
 		return status;
 	
-	data = agc_data_s[BIT_SHIFT_MASK(tc->tc_addr, 1, 1)];
+	data = agc_data_s[pt3_tc_index(tc)];
 	data |= (agc == PT3_TC_AGC_AUTO) ? 0x01 : 0x00;
 	status = pt3_tc_write(tc, bus, 0x10, &data, 1);
 	if (status)
 		return status;
 
 	data = (agc == PT3_TC_AGC_AUTO) ? 0x40 : 0x00;
-	status = pt3_tc_write(tc, bus, 0x10, &data, 1);
+	status = pt3_tc_write(tc, bus, 0x11, &data, 1);
 	if (status)
 		return status;
 

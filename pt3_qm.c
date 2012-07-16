@@ -28,6 +28,13 @@
 void
 pt3_qm_get_channel_freq(__u32 channel, int *bs, __u32 *number, __u32 *freq)
 {
+	if (!bs)
+		printk(KERN_ERR "PT3: qm_get_channel_freq need bs.");
+	if (!number)
+		printk(KERN_ERR "PT3: qm_get_channel_freq need number.");
+	if (!freq)
+		printk(KERN_ERR "PT3: qm_get_channel_freq need freq.");
+
 	if (channel < 12) {
 		*bs = 1;
 		*number = 1 + 2 * channel;
@@ -73,8 +80,10 @@ qm_read(PT3_QM *qm, PT3_BUS *bus, __u8 addr, __u8 *data)
 	STATUS status;
 	if ((addr == 0x00 ) || (addr == 0x0d)) {
 		status = pt3_tc_read_tuner(qm->tc, bus, addr, data, 1);
+#if 0
 		if (!bus)
 			printk(KERN_DEBUG "qm_read addr=0x%02x data=0x%02x", addr, *data);
+#endif
 	} else 
 		status = STATUS_OK;
 
@@ -281,8 +290,8 @@ qm_local_lpf_tuning(PT3_QM *qm, PT3_BUS *bus, int lpf, __u32 channel)
 
 	qm->reg[0x09] &= 0xc0;
 	qm->reg[0x09] |= (sd >> 16) & 0x3f;
-	qm->reg[0x0a] = (__u8)(sd >> 8);
-	qm->reg[0x0b] = (__u8)(sd >> 0);
+	qm->reg[0x0a] = (sd >> 8) & 0xff;
+	qm->reg[0x0b] = (sd >> 0) & 0xff;
 	status = qm_write(qm, bus, 0x09, qm->reg[0x09]);
 	if (status)
 		return status;
@@ -461,10 +470,12 @@ pt3_qm_get_locked(PT3_QM *qm, PT3_BUS *bus, int *locked)
 {
 	STATUS status;
 
+	printk(KERN_DEBUG "reg[0x0d]=0x%02x", qm->reg[0x0d]);
 	status = qm_read(qm, bus, 0x0d, &qm->reg[0x0d]);
 	if (status)
 		return status;
 	
+	printk(KERN_DEBUG "reg[0x0d]=0x%02x", qm->reg[0x0d]);
 	if (qm->reg[0x0d] & 0x40)
 		*locked = 1;
 	else
@@ -509,7 +520,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 		if (locked)
 			break;
 
-		if (time_diff(&begin, &now) >= 1000)
+		if (time_diff(&begin, &now) >= 100)
 			break;
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	

@@ -67,6 +67,7 @@ pt3_i2c_copy(PT3_I2C *i2c, PT3_BUS *bus)
 {
 	void __iomem *dst;
 	__u8 *src;
+	__u32 i;
 
 	src = &bus->insts[0];
 	dst = i2c->bar[1].regs + DATA_OFFSET + (bus->inst_addr / 2);
@@ -75,9 +76,12 @@ pt3_i2c_copy(PT3_I2C *i2c, PT3_BUS *bus)
 	printk(KERN_DEBUG "PT3 : i2c_copy. base=%p dst=%p src=%p size=%d",
 						i2c->bar[1].regs, dst, src, bus->inst_pos);
 #endif
+
+#if 1
+	for (i = 0; i < bus->inst_pos; i++)
+		writeb(src[i], dst + i);
+#else
 	memcpy(dst, src, bus->inst_pos);
-#if 0
-	printk(KERN_DEBUG "i2c_copy src=0x%02x dst=0x%02x", *src, readb(dst));
 #endif
 }
 

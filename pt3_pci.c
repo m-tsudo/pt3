@@ -148,7 +148,7 @@ setup_bar(struct pci_dev *pdev, BAR *bar, int index)
 	printk(KERN_DEBUG "request_mem_resion success. mmio_start=0x%lx mmio_len=%u",
 						bar->mmio_start, bar->mmio_len);
 
-	bar->regs = ioremap(bar->mmio_start, bar->mmio_len);
+	bar->regs = ioremap_nocache(bar->mmio_start, bar->mmio_len);
 	if (!bar->regs){
 		printk(KERN_ERR "pt3:Can't remap register area.\n");
 		goto out_err_regbase;

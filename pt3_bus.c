@@ -162,7 +162,7 @@ pt3_bus_push_read_data(PT3_BUS *bus, __u8 data)
 		bus->buf[bus->buf_pos] = data;
 		bus->buf_pos++;
 	}
-#if 1
+#if 0
 	printk(KERN_DEBUG "bus read data=0x%02x", data);
 #endif
 }
