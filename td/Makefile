@@ -10,4 +10,4 @@ $(PROJECT) : $(OBJS)
 	$(CC) -o $(PROJECT) $(OBJS)
 
 clean:
-	rm -f $(OBJS) $(PROJECT)
+	rm -f $(OBJS) $(PROJECT) check_lfsr *.ts

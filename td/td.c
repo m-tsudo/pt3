@@ -50,7 +50,7 @@ test_open(const char* src, const char* dst)
 	if (rc < 0)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
-	goto last;
+	// goto last;
 
 	rc = ioctl(fd_src, SET_TEST_MODE_ON, 0);
 	if (rc < 0)
@@ -85,8 +85,8 @@ last:
 int
 main(int argc, char * const argv[])
 {
-	//test_open(DEV0, "dev0.ts");
-	//test_open(DEV1, "dev1.ts");
+	test_open(DEV0, "dev0.ts");
+	test_open(DEV1, "dev1.ts");
 	test_open(DEV2, "dev2.ts");
-	//test_open(DEV3, "dev3.ts");
+	test_open(DEV3, "dev3.ts");
 }

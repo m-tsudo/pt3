@@ -47,26 +47,70 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 {
 	PT3_DMA_PAGE *desc_info, *ts_info;
 	__u64 ts_addr, desc_addr;
-	__u32 i, j, ts_size, desc_remain;
+	__u32 i, j, ts_size, desc_remain, ts_info_pos, desc_info_pos;
 	PT3_DMA_DESC *prev, *curr;
 
-	desc_info = dma->desc_info;
-	ts_info = dma->ts_info;
+	if (dma == NULL) {
+		printk(KERN_ERR "dma build page descriptor needs DMA");
+		return;
+	}
+
+	desc_info_pos = ts_info_pos = 0;
+	desc_info = &dma->desc_info[desc_info_pos];
+	desc_info->data_pos = 0;
+	ts_info = &dma->ts_info[ts_info_pos];
 	desc_addr = desc_info->addr;
 	desc_remain = desc_info->size;
-	curr = (PT3_DMA_DESC *)desc_info->data;
+	curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
 	prev = NULL;
-	desc_info++;
+	desc_info_pos++;
+	ts_info_pos++;
+
+#if 1
+	if (ts_info == NULL) {
+		printk(KERN_ERR "dma maybe failed allocate ts_info %d",
+				ts_info_pos);
+		return;
+	}
+	if (desc_info == NULL) {
+		printk(KERN_ERR "dma maybe failed allocate desc_info %d",
+				desc_info_pos);
+		return;
+	}
+	if (curr == NULL) {
+		printk(KERN_ERR "dma maybe failed allocate desc_info->data %d",
+				desc_info_pos);
+		return;
+	}
+#endif
+
 	for (i = 0; i < dma->ts_count; i++) {
 		ts_addr = ts_info->addr;
 		ts_size = ts_info->size;
-		ts_info++;
+		ts_info = &dma->ts_info[ts_info_pos];
+		ts_info_pos++;
+#if 1
+		if (ts_info == NULL) {
+			printk(KERN_ERR "dma maybe failed allocate ts_info %d",
+					ts_info_pos);
+			return;
+		}
+#endif
 		for (j = 0; j < ts_size / DMA_PAGE_SIZE; j++) {
 			if (desc_remain < sizeof(*curr)) {
-				curr = (PT3_DMA_DESC *)desc_info->data;
+				desc_info = &dma->desc_info[desc_info_pos];
+				desc_info->data_pos = 0;
+				curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
+#if 1
+				if (curr == NULL) {
+					printk(KERN_ERR "dma maybe failed allocate desc_info->data %d",
+							desc_info_pos);
+					return;
+				}
+#endif
 				desc_addr = desc_info->addr;
 				desc_remain = desc_info->size;
-				desc_info++;
+				desc_info_pos++;
 			}
 			if (prev != NULL)
 				prev->next_addr = desc_addr;
@@ -74,7 +118,12 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 			ts_addr += DMA_PAGE_SIZE;
 
 			prev = curr;
-			curr++;
+			desc_info->data_pos += sizeof(PT3_DMA_DESC);
+			if (desc_info->size <= desc_info->data_pos) {
+				printk(KERN_ERR "dma desc_info data overflow.");
+				return;
+			}
+			curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
 			desc_addr += sizeof(*curr);
 			desc_remain -= sizeof(*curr);
 		}

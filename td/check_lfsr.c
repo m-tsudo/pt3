@@ -31,12 +31,12 @@ main(int argc, char * const argv[])
 	for (i = 0; i < 3 * 1024 * 100 / 2; i++) {
 		read(fd, &buf, sizeof(buf));
 		if (buf != lfsr) {
-			printf("invalid data !\n");
+			printf("check NG!\n");
 			goto last;
 		}
 		lfsr = (lfsr >> 1) ^ (-(lfsr & 1) & 0xb400);
 	}
-	printf("validated.\n");
+	printf("check OK.\n");
 last:
 	close(fd);
 
