@@ -67,7 +67,7 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 	STATUS status;
 	__u8 buf[size];
 	__u32 i;
-	size_t rindex;
+	__u32 rindex;
 	PT3_BUS *p;
 
 	memset(buf, 0, size);
@@ -88,6 +88,7 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 
 	pt3_bus_start(p);
 	buf[0] = (tc->tc_addr << 1) | 0x01;
+	pt3_bus_write(p, &buf[0], 1);
 	rindex = pt3_bus_read(p, &buf[0], size);
 	pt3_bus_stop(p);
 

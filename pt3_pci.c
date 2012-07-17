@@ -459,7 +459,6 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 			status = set_frequency(j, &dev_conf->tuner[i], channel, 0);
 			if (status) {
 				printk(KERN_DEBUG "fail set_frequency. status=0x%x", status);
-				goto last;
 			}
 			status = set_tuner_sleep(j, &dev_conf->tuner[i], 1);
 			if (status)

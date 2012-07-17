@@ -470,12 +470,10 @@ pt3_qm_get_locked(PT3_QM *qm, PT3_BUS *bus, int *locked)
 {
 	STATUS status;
 
-	printk(KERN_DEBUG "reg[0x0d]=0x%02x", qm->reg[0x0d]);
 	status = qm_read(qm, bus, 0x0d, &qm->reg[0x0d]);
 	if (status)
 		return status;
 	
-	printk(KERN_DEBUG "reg[0x0d]=0x%02x", qm->reg[0x0d]);
 	if (qm->reg[0x0d] & 0x40)
 		*locked = 1;
 	else

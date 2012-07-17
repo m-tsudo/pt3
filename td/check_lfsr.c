@@ -18,8 +18,12 @@ main(int argc, char * const argv[])
 	unsigned short lfsr, buf;
 	int fd, i;
 
-	if (argc != 4)
+	if (argc != 4) {
+		printf("Usage : %s target_file isdb tuner_no\n", argv[0]);
+		printf("\tisdb\t\tS=0 T=1\n");
+		printf("\ttuner_no\t0 or 1\n");
 		return EXIT_SUCCESS;
+	}
 
 	fd = open(argv[1], O_RDONLY);
 	if (fd <= 0) {

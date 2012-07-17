@@ -67,7 +67,7 @@ add_instruction(PT3_BUS *bus, __u32 instruction)
 }
 
 static __u32
-datan(PT3_BUS *bus, size_t index, __u32 n)
+datan(PT3_BUS *bus, __u32 index, __u32 n)
 {
 	__u32 i, data;
 
@@ -123,11 +123,11 @@ pt3_bus_write(PT3_BUS *bus, const __u8 *data, __u32 size)
 	}
 }
 
-size_t
+__u32
 pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size)
 {
 	__u32 i, j;
-	size_t index;
+	__u32 index;
 
 	for (i = 0; i < size; i++) {
 		for (j = 0; j < 8; j++) {
@@ -168,7 +168,7 @@ pt3_bus_push_read_data(PT3_BUS *bus, __u8 data)
 }
 
 __u8
-pt3_bus_data1(PT3_BUS *bus, size_t index)
+pt3_bus_data1(PT3_BUS *bus, __u32 index)
 {
 	return (__u8)datan(bus, index, 1);
 }

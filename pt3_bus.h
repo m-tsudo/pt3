@@ -27,7 +27,7 @@ size_t pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size);
 void pt3_bus_reset(PT3_BUS *bus);
 void pt3_bus_sleep(PT3_BUS *bus, __u32 ms);
 void pt3_bus_end(PT3_BUS *bus);
-__u8 pt3_bus_data1(PT3_BUS *bus, size_t index);
+__u8 pt3_bus_data1(PT3_BUS *bus, __u32 index);
 void pt3_bus_push_read_data(PT3_BUS *bus, __u8 data);
 
 PT3_BUS * create_pt3_bus(void);

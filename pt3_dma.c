@@ -57,15 +57,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 
 	desc_info_pos = ts_info_pos = 0;
 	desc_info = &dma->desc_info[desc_info_pos];
-	desc_info->data_pos = 0;
 	ts_info = &dma->ts_info[ts_info_pos];
-	desc_addr = desc_info->addr;
-	desc_remain = desc_info->size;
-	curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
-	prev = NULL;
-	desc_info_pos++;
-	ts_info_pos++;
-
 #if 1
 	if (ts_info == NULL) {
 		printk(KERN_ERR "dma maybe failed allocate ts_info %d",
@@ -77,12 +69,21 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 				desc_info_pos);
 		return;
 	}
+#endif
+	desc_addr = desc_info->addr;
+	desc_remain = desc_info->size;
+	desc_info->data_pos = 0;
+	curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
+	prev = NULL;
+#if 1
 	if (curr == NULL) {
 		printk(KERN_ERR "dma maybe failed allocate desc_info->data %d",
 				desc_info_pos);
 		return;
 	}
 #endif
+	desc_info_pos++;
+	ts_info_pos++;
 
 	for (i = 0; i < dma->ts_count; i++) {
 		ts_addr = ts_info->addr;
@@ -361,6 +362,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 	for (i = 0; i < dma->ts_count; i++) {
 		page = &dma->ts_info[i];
 		page->size = BLOCK_SIZE;
+		page->data_pos = 0;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			printk(KERN_ERR "fail allocate consistent. %d", i);
@@ -378,16 +380,17 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 	for (i = 0; i < dma->desc_count; i++) {
 		page = &dma->desc_info[i];
 		page->size = DMA_PAGE_SIZE;
+		page->data_pos = 0;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			printk(KERN_ERR "fail allocate consistent. %d", i);
 			goto fail;
 		}
 	}
-	//printk(KERN_DEBUG "Allocate Descriptor buffer.");
+	printk(KERN_DEBUG "Allocate Descriptor buffer.");
 	
 	pt3_dma_build_page_descriptor(dma, 1);
-	//printk(KERN_DEBUG "set page descriptor.");
+	printk(KERN_DEBUG "set page descriptor.");
 #if 0
 	dma_check_page_descriptor(dma);
 #endif

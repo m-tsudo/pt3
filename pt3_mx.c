@@ -392,7 +392,9 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
 	}
+#if 0
 	printk(KERN_DEBUG "mx_get_locked1 %d locked2 %d", locked1, locked2);
+#endif
 	if (!(locked1 && locked2))
 		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
 	
