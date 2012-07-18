@@ -6,7 +6,7 @@
 
 #define PT3_BUS_MAX_INST 4096
 #define PT3_BUS_INST_ADDR0 4096 + 0
-#define PT3_BUS_INST_ADDR1 4096 + 2048
+#define PT3_BUS_INST_ADDR1 4096 + 2042
 
 typedef struct _PT3_BUS {
 	__u32 inst_addr;
@@ -23,7 +23,7 @@ typedef struct _PT3_BUS {
 void pt3_bus_start(PT3_BUS *bus);
 void pt3_bus_stop(PT3_BUS *bus);
 void pt3_bus_write(PT3_BUS *bus, const __u8 *data, __u32 size);
-size_t pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size);
+__u32 pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size);
 void pt3_bus_reset(PT3_BUS *bus);
 void pt3_bus_sleep(PT3_BUS *bus, __u32 ms);
 void pt3_bus_end(PT3_BUS *bus);

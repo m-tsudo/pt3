@@ -14,5 +14,6 @@ typedef	struct	_frequency{
 #define		GET_STATUS _IOR(0x8d, 0x07, int *)
 #define		SET_TEST_MODE_ON _IO(0x8d, 0x08)
 #define		SET_TEST_MODE_OFF _IO(0x8d, 0x09)
+#define		GET_TS_ERROR_PACKET_COUNT _IOR(0x8d, 0x0a, unsigned int *)
 
 #endif

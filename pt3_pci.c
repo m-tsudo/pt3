@@ -160,30 +160,6 @@ out_err_regbase:
 	return -1;
 }
 
-static void
-dump_bar(void __iomem *regs)
-{
-	__u32 i, j;
-	__u8 data[512];
-
-	memset(data, 0, sizeof(data));
-	for (i = 0; i < 4096 / sizeof(data); i++) {
-		memcpy(data, regs + (i * sizeof(data)), sizeof(data));
-		for (j = 0; j < sizeof(data) / 16; j++) {
-			printk(KERN_DEBUG
-				"0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x ",
-			 	data[i*sizeof(data)+j*16+ 0], data[i*sizeof(data)+j*16+ 1],
-			 	data[i*sizeof(data)+j*16+ 2], data[i*sizeof(data)+j*16+ 3],
-			 	data[i*sizeof(data)+j*16+ 4], data[i*sizeof(data)+j*16+ 5],
-			 	data[i*sizeof(data)+j*16+ 6], data[i*sizeof(data)+j*16+ 7],
-			 	data[i*sizeof(data)+j*16+ 8], data[i*sizeof(data)+j*16+ 9],
-			 	data[i*sizeof(data)+j*16+10], data[i*sizeof(data)+j*16+11],
-			 	data[i*sizeof(data)+j*16+12], data[i*sizeof(data)+j*16+13],
-			 	data[i*sizeof(data)+j*16+14], data[i*sizeof(data)+j*16+15]);
-		}
-	}
-}
-
 static int
 ep4c_init(PT3_DEVICE *dev_conf)
 {
@@ -201,7 +177,8 @@ ep4c_init(PT3_DEVICE *dev_conf)
 	printk(KERN_DEBUG "Check PTn is passed. n=%d\n", dev_conf->version.ptn);
 
 	if (dev_conf->version.fpga != 0x04) {
-		printk(KERN_ERR "this FPGA version not supported\n");
+		printk(KERN_ERR "this FPGA version not supported. version=0x%x\n",
+				dev_conf->version.fpga);
 		return -1;
 	}
 	printk(KERN_DEBUG "Check FPGA version is passed. version=0x%x",
@@ -368,7 +345,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		goto last;
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(200));	
+	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -387,7 +364,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(200));	
+	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
@@ -400,13 +377,12 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	if (bus->inst_addr < 4096)
 		pt3_i2c_copy(dev_conf->i2c, bus);
 
-#if 0
+#if 1
 	bus->inst_addr = PT3_BUS_INST_ADDR1;
 	status = pt3_i2c_run(dev_conf->i2c, bus, NULL, 0);
 	if (status) {
-		printk(KERN_DEBUG "fail i2c_run. status=0x%x", status);
-		for (i = 0; i < bus->inst_pos; i++)
-			printk(KERN_DEBUG "instruction[%d] = 0x%x", i, bus->insts[i]);
+		printk(KERN_DEBUG "failed inst_addr=0x%x status=0x%x",
+				PT3_BUS_INST_ADDR1, status);
 		goto last;
 	}
 #endif
@@ -551,13 +527,12 @@ static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t 
 
 	channel = file->private_data;
 
-	rcnt = pt3_dma_copy(channel->dma, buf, cnt,
+	rcnt = pt3_dma_copy(channel->dma, buf, cnt, ppos,
 						dma_look_ready[channel->dma->real_index]);
 	if (rcnt < 0) {
 		printk(KERN_INFO "PT3: fail copy_to_user.");
 		return -EFAULT;
 	}
-	*ppos += rcnt;
 
 	return rcnt;
 }
@@ -584,7 +559,8 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 {
 	PT3_CHANNEL *channel;
 	FREQUENCY freq;
-	int status, count, lnb_eff, lnb_usr;
+	int status, lnb_eff, lnb_usr;
+	unsigned int count;
 	unsigned long dummy;
 	char *voltage[] = {"0V", "11V", "15V"};
 	void *arg;
@@ -646,6 +622,10 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		dma_look_ready[channel->dma->real_index] = 1;
 		pt3_dma_build_page_descriptor(channel->dma, 1);
 		pt3_dma_set_enabled(channel->dma, 0);
+		return 0;
+	case GET_TS_ERROR_PACKET_COUNT:
+		count = (int)pt3_dma_get_ts_error_packet_count(channel->dma);
+		dummy = copy_to_user(arg, &count, sizeof(unsigned int));
 		return 0;
 	}
 

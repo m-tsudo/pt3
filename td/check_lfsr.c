@@ -32,10 +32,9 @@ main(int argc, char * const argv[])
 	}
 
 	lfsr = get_lfsr(atoi(argv[2]), atoi(argv[3]));
-	for (i = 0; i < 3 * 1024 * 100 / 2; i++) {
-		read(fd, &buf, sizeof(buf));
+	while (read(fd, &buf, sizeof(buf))) {
 		if (buf != lfsr) {
-			printf("check NG!\n");
+			printf("check NG! 0x%x\n", lseek(fd, 0, SEEK_CUR));
 			goto last;
 		}
 		lfsr = (lfsr >> 1) ^ (-(lfsr & 1) & 0xb400);
