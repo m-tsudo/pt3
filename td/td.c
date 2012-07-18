@@ -70,7 +70,7 @@ last:
 }
 
 int
-rec_open(const char* src, const char* dst)
+rec_open(const char* src, const char* dst, int channel)
 {
 	FREQUENCY freq;
 	char buf[1024 * 6];
@@ -96,7 +96,7 @@ rec_open(const char* src, const char* dst)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
 
-	freq.channel = 70;
+	freq.channel = channel;
 	rc = ioctl(fd_src, SET_CHANNEL, &freq);
 	if (rc)
 		fprintf(stderr, "set channel %d rc=0x%x\n", freq.channel, rc);
@@ -120,7 +120,7 @@ rec_open(const char* src, const char* dst)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
 
-	sleep(1);
+	sleep(2);
 
 	for (i = 0; i < 100; i++) {
 		rsize = read(fd_src, buf, sizeof(buf));
@@ -161,5 +161,6 @@ main(int argc, char * const argv[])
 	test_open(DEV2, "test2.ts");
 	test_open(DEV3, "test3.ts");
 
-	rec_open(DEV2, "rec2.ts");
+	rec_open(DEV0, "rec0.ts", 10);
+	rec_open(DEV3, "rec3.ts", 22);
 }

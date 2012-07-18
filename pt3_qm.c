@@ -108,7 +108,7 @@ qm_set_sleep_mode(PT3_QM *qm, PT3_BUS *bus)
 	param = &qm->param;
 
 	if (param->standby) {
-		qm->reg[0x01] &= (~(1 <<3)) & 0xff;
+		qm->reg[0x01] &= (~(1 << 3)) & 0xff;
 		qm->reg[0x01] |= 1 << 0;
 		qm->reg[0x05] |= 1 << 3;
 
@@ -148,7 +148,7 @@ qm_set_search_mode(PT3_QM *qm, PT3_BUS *bus)
 		if (status)
 			return status;
 	} else {
-		qm->reg[0x03] |= 0xfe;
+		qm->reg[0x03] &= 0xfe;
 		status = qm_write(qm, bus, 0x03, qm->reg[0x03]);
 		if (status)
 			return status;
@@ -526,7 +526,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
 	}
-	printk(KERN_DEBUG "qm_get_locked %d status=0x%x", locked, status);
+	// printk(KERN_DEBUG "qm_get_locked %d status=0x%x", locked, status);
 	if (!locked)
 		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
 	

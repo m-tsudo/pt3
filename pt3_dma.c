@@ -349,7 +349,7 @@ pt3_dma_ready(PT3_DMA *dma)
 	if (*p == NOT_SYNC_BYTE)
 		return 0;
 
-	printk(KERN_DEBUG "sync byte is invalid value=0x%02x ts_pos=%d data_pos=%d curr=0x%02x",
+	printk(KERN_DEBUG "invalid sync byte value=0x%02x ts_pos=%d data_pos=%d curr=0x%02x",
 			*p, next, page->data_pos, dma->ts_info[dma->ts_pos].data[0]);
 
 	return 0;
