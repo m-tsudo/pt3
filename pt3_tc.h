@@ -4,6 +4,7 @@
 #include "pt3_com.h"
 #include "pt3_bus.h"
 #include "pt3_i2c.h"
+#include "pt3_ioctl.h"
 
 #define TC_THROUGH 0xfe
 
@@ -35,6 +36,9 @@ STATUS pt3_tc_set_agc_t(PT3_TC *tc, PT3_BUS *bus, PT3_TC_AGC agc);
 STATUS pt3_tc_set_sleep_s(PT3_TC *tc, PT3_BUS *bus, int sleep);
 STATUS pt3_tc_set_ts_pins_mode_s(PT3_TC *tc, PT3_BUS *bus, PT3_TS_PINS_MODE *mode);
 STATUS pt3_tc_set_ts_pins_mode_t(PT3_TC *tc, PT3_BUS *bus, PT3_TS_PINS_MODE *mode);
+STATUS pt3_tc_read_retryov_tmunvld_fulock(PT3_TC *tc, PT3_BUS *bus, int *retryov, int *tmunvld, int *fulock);
+STATUS pt3_tc_read_tmcc_s(PT3_TC *tc, PT3_BUS *bus, TMCC_S *tmcc);
+STATUS pt3_tc_read_tmcc_t(PT3_TC *tc, PT3_BUS *bus, TMCC_T *tmcc);
 PT3_TC * create_pt3_tc(PT3_I2C *i2c, __u8 tc_addr, __u8 qm_addr);
 void free_pt3_tc(PT3_TC *tc);
 __u32 time_diff(struct timeval *st, struct timeval *et);

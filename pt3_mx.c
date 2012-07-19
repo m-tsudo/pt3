@@ -169,6 +169,11 @@ mx_tuner_rftune(PT3_MX *mx, PT3_BUS *bus, __u32 freq)
 
 	mx_rftune(data, &size, freq);
 
+	if (size != 20) {
+		printk(KERN_ERR "fail mx_rftune size = %d", size);
+		return;
+	}
+
 	mx_write(mx, bus, data, 14);
 
 	schedule_timeout_interruptible(msecs_to_jiffies(1));	

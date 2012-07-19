@@ -214,6 +214,42 @@ get_tuner_status(int isdb, PT3_TUNER *tuner)
 }
 #endif
 
+static STATUS
+get_tmcc_s(PT3_TUNER *tuner, TMCC_S *tmcc)
+{
+	if (tmcc == NULL)
+		return STATUS_INVALID_PARAM_ERROR;
+
+	return pt3_tc_read_tmcc_s(tuner->tc_s, NULL, tmcc);
+}
+
+static STATUS
+get_tmcc_t(PT3_TUNER *tuner, TMCC_T *tmcc)
+{
+	int b, retryov, tmunvld, fulock;
+
+	if (tmcc == NULL)
+		return STATUS_INVALID_PARAM_ERROR;
+
+	b = 0;
+	while (1) {
+		pt3_tc_read_retryov_tmunvld_fulock(tuner->tc_t, NULL, &retryov, &tmunvld, &fulock);
+		if (!fulock) {
+			b = 1;
+			break;
+		} else {
+			if (retryov)
+				break;
+		}
+		schedule_timeout_interruptible(msecs_to_jiffies(1));	
+	}
+
+	if (b)
+		pt3_tc_read_tmcc_t(tuner->tc_t, NULL, tmcc);
+
+	return b ? STATUS_OK : STATUS_GENERAL_ERROR;
+}
+
 static __u32 LNB_SETTINGS[] = {
 	(1 << 3 | 0 << 1) | (1 << 2 | 0 << 9),	// 0v
 	(1 << 3 | 0 << 1) | (1 << 2 | 1 << 0),	// 12v
@@ -559,6 +595,8 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 {
 	PT3_CHANNEL *channel;
 	FREQUENCY freq;
+	TMCC_S tmcc_s;
+	TMCC_T tmcc_t;
 	int status, lnb_eff, lnb_usr;
 	unsigned int count;
 	unsigned long dummy;
@@ -620,13 +658,28 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		return 0;
 	case SET_TEST_MODE_OFF:
 		dma_look_ready[channel->dma->real_index] = 1;
-		pt3_dma_build_page_descriptor(channel->dma, 1);
 		pt3_dma_set_enabled(channel->dma, 0);
+		pt3_dma_build_page_descriptor(channel->dma, 1);
+		pt3_dma_set_test_mode(channel->dma, 0, 0, 0, 1);
 		return 0;
 	case GET_TS_ERROR_PACKET_COUNT:
 		count = (int)pt3_dma_get_ts_error_packet_count(channel->dma);
 		dummy = copy_to_user(arg, &count, sizeof(unsigned int));
 		return 0;
+	case GET_TMCC_S :
+		if (channel->type == PT3_ISDB_S) {
+			status = get_tmcc_s(channel->tuner, &tmcc_s);
+			dummy = copy_to_user(arg, &tmcc_s, sizeof(TMCC_S));
+			return 0;
+		};
+		return -EINVAL;
+	case GET_TMCC_T :
+		if (channel->type == PT3_ISDB_T) {
+			status = get_tmcc_t(channel->tuner, &tmcc_t);
+			dummy = copy_to_user(arg, &tmcc_t, sizeof(TMCC_T));
+			return 0;
+		};
+		return -EINVAL;
 	}
 
 	return -EINVAL;
