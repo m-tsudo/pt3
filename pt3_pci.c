@@ -447,12 +447,19 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	pt3_bus_end(bus);
 	bus->inst_addr = PT3_BUS_INST_ADDR0;
 
+#if 0
 	if (!pt3_i2c_is_clean(i2c)) {
 		printk(KERN_INFO "I2C bus is dirty.");
 		status = pt3_i2c_run(i2c, bus, NULL, 0);
 		if (status)
 			goto last;
 	}
+#else
+	printk(KERN_INFO "force reset");
+	status = pt3_i2c_run(i2c, bus, NULL, 0);
+	if (status)
+		goto last;
+#endif
 
 	status = tuner_power_on(dev_conf, bus);
 	if (status)
@@ -659,8 +666,8 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 	case SET_TEST_MODE_OFF:
 		dma_look_ready[channel->dma->real_index] = 1;
 		pt3_dma_set_enabled(channel->dma, 0);
-		pt3_dma_build_page_descriptor(channel->dma, 1);
 		pt3_dma_set_test_mode(channel->dma, 0, 0, 0, 1);
+		pt3_dma_build_page_descriptor(channel->dma, 1);
 		return 0;
 	case GET_TS_ERROR_PACKET_COUNT:
 		count = (int)pt3_dma_get_ts_error_packet_count(channel->dma);
@@ -669,6 +676,8 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 	case GET_TMCC_S :
 		if (channel->type == PT3_ISDB_S) {
 			status = get_tmcc_s(channel->tuner, &tmcc_s);
+			if (status)
+				return -status;
 			dummy = copy_to_user(arg, &tmcc_s, sizeof(TMCC_S));
 			return 0;
 		};
@@ -676,6 +685,8 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 	case GET_TMCC_T :
 		if (channel->type == PT3_ISDB_T) {
 			status = get_tmcc_t(channel->tuner, &tmcc_t);
+			if (status)
+				return -status;
 			dummy = copy_to_user(arg, &tmcc_t, sizeof(TMCC_T));
 			return 0;
 		};

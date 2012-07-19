@@ -81,6 +81,46 @@ pt3_tc_write(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 size)
 	return status;
 }
 
+static STATUS
+tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
+{
+	STATUS status;
+	__u8 buf[size];
+	__u32 i, rindex;
+	PT3_BUS *p;
+
+	p = bus ? bus : create_pt3_bus();
+	if (p == NULL) {
+		printk(KERN_ERR "out of memory.");
+		return STATUS_OUT_OF_MEMORY_ERROR;
+	}
+
+	pt3_bus_start(p);
+	buf[0] = tc->tc_addr << 1;
+	pt3_bus_write(p, &buf[0], 1);
+	pt3_bus_write(p, &addr, 1);
+
+	pt3_bus_start(p);
+	buf[0] = tc->tc_addr << 1 | 1;
+	pt3_bus_write(p, &buf[0], 1);
+	rindex = pt3_bus_read(p, &buf[0], size);
+	pt3_bus_stop(p);
+
+	if (bus) {
+		status = STATUS_OK;
+	} else {
+		pt3_bus_end(p);
+		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
+		for (i = 0; i < size; i++)
+			data[i] = pt3_bus_data1(p, rindex + i);
+	}
+
+	if (!bus)
+		free_pt3_bus(p);
+
+	return status;
+}
+
 STATUS
 pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 {
@@ -257,46 +297,6 @@ pt3_tc_write_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 
 	else {
 		pt3_bus_end(p);
 		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
-	}
-
-	if (!bus)
-		free_pt3_bus(p);
-
-	return status;
-}
-
-static STATUS
-tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
-{
-	STATUS status;
-	__u8 buf[size];
-	__u32 i, rindex;
-	PT3_BUS *p;
-
-	p = bus ? bus : create_pt3_bus();
-	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
-		return STATUS_OUT_OF_MEMORY_ERROR;
-	}
-
-	pt3_bus_start(p);
-	buf[0] = tc->tc_addr << 1;
-	pt3_bus_write(p, &buf[0], 1);
-	pt3_bus_write(p, &addr, 1);
-
-	pt3_bus_start(p);
-	buf[0] = tc->tc_addr << 1 | 1;
-	pt3_bus_write(p, &buf[0], 1);
-	rindex = pt3_bus_read(p, &buf[0], size);
-	pt3_bus_stop(p);
-
-	if (bus) {
-		status = STATUS_OK;
-	} else {
-		pt3_bus_end(p);
-		status = pt3_i2c_run(tc->i2c, p, NULL, 1);
-		for (i = 0; i < size; i++)
-			data[i] = pt3_bus_data1(p, rindex + i);
 	}
 
 	if (!bus)
