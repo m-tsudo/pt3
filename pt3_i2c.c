@@ -50,6 +50,9 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 		printk(KERN_DEBUG "start address is over.");
 	
 	writel(1 << 16 | start_addr, i2c->bar[0].regs + REGS_I2C_W);
+#if 1
+	printk(KERN_DEBUG "run i2c start_addr=0x%x", start_addr);
+#endif
 
 	wait(i2c, &data);
 
