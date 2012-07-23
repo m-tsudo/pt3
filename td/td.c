@@ -122,7 +122,7 @@ rec_open(const char* src, const char* dst, int channel)
 
 	sleep(2);
 
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 1000; i++) {
 		rsize = read(fd_src, buf, sizeof(buf));
 		if (rsize > 0)
 			write(fd_dst, buf, rsize);
@@ -156,6 +156,8 @@ last:
 int
 main(int argc, char * const argv[])
 {
+	int i;
+	char str[100];
 	/*
 	test_open(DEV0, "test0.ts");
 	test_open(DEV1, "test1.ts");
@@ -163,8 +165,13 @@ main(int argc, char * const argv[])
 	test_open(DEV3, "test3.ts");
 	*/
 
-	rec_open(DEV0, "rec0.ts", 0);
-	rec_open(DEV1, "rec1.ts", 5);
+	/*
+	for (i = 0; i < 36; i++) {
+		sprintf(str, "rec0-%02d.ts", i);
+		rec_open(DEV0, str, i);
+	}
+	*/
+	rec_open(DEV1, "rec1.ts", 21);
 	rec_open(DEV2, "rec2.ts", 99);
 	rec_open(DEV3, "rec3.ts", 76);
 }

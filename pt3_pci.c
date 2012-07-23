@@ -72,8 +72,6 @@ static struct pci_device_id pt3_pci_tbl[] = {
 MODULE_DEVICE_TABLE(pci, pt3_pci_tbl);
 #define		DEV_NAME	"pt3video"
 
-#define		PACKET_SIZE			188		// 1パケット長
-#define		MAX_READ_BLOCK	4			// 1度に読み出す最大DMAバッファ数
 #define		MAX_PCI_DEVICE		128		// 最大64枚
 
 typedef struct _PT3_VERSION {
@@ -130,7 +128,6 @@ static int channel_type[MAX_CHANNEL] = {PT3_ISDB_S, PT3_ISDB_S,
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
 static struct class	*pt3video_class;
 
-#define		PT3MAJOR	251
 #define		DRIVERNAME	"pt3video"
 
 static int
@@ -441,7 +438,6 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	if (bus->inst_addr < 4096)
 		pt3_i2c_copy(dev_conf->i2c, bus);
 
-#if 1
 	bus->inst_addr = PT3_BUS_INST_ADDR1;
 	status = pt3_i2c_run(dev_conf->i2c, bus, NULL, 0);
 	if (status) {
@@ -449,7 +445,6 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 				PT3_BUS_INST_ADDR1, status);
 		goto last;
 	}
-#endif
 
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
 	if (status) {
@@ -475,19 +470,12 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	pt3_bus_end(bus);
 	bus->inst_addr = PT3_BUS_INST_ADDR0;
 
-#if 1
 	if (!pt3_i2c_is_clean(i2c)) {
 		printk(KERN_INFO "I2C bus is dirty.");
 		status = pt3_i2c_run(i2c, bus, NULL, 0);
 		if (status)
 			goto last;
 	}
-#else
-	printk(KERN_INFO "force reset");
-	status = pt3_i2c_run(i2c, bus, NULL, 0);
-	if (status)
-		goto last;
-#endif
 
 	status = tuner_power_on(dev_conf, bus);
 	if (status)
@@ -541,7 +529,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			printk(KERN_ERR "fail get_tmcc_s status=0x%x", status);
 			return status;
 		}
-#if 0
+#if 1
 		printk(KERN_DEBUG "tmcc_s.id = 0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x",
 				tmcc_s.id[0], tmcc_s.id[1], tmcc_s.id[2], tmcc_s.id[3],
 				tmcc_s.id[4], tmcc_s.id[5], tmcc_s.id[6], tmcc_s.id[7]);
@@ -557,7 +545,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 				printk(KERN_ERR "fail get_id_s status=0x%x", status);
 				return status;
 			}
-			printk(KERN_DEBUG "tsid=0x%x", tsid);
+			// printk(KERN_DEBUG "tsid=0x%x", tsid);
 			if ((tsid & 0xffff) == tmcc_s.id[0])
 				return STATUS_OK;
 		}
@@ -817,7 +805,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	if (rc)
 		return rc;
 
-	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
 	if (rc) {
 		printk(KERN_ERR "PT3:DMA MASK ERROR");
 		return rc;
@@ -855,7 +843,6 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		goto out_err_regbase;
 	if (setup_bar(pdev, &dev_conf->bar[1], 2))
 		goto out_err_regbase;
-	// dump_bar(dev_conf->bar[1].regs);
 
 	// 初期化処理
 	if(ep4c_init(dev_conf)){

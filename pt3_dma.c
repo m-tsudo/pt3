@@ -127,7 +127,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 		}
 #endif
 		for (j = 0; j < ts_size / DMA_PAGE_SIZE; j++) {
-			if (desc_remain < sizeof(*curr)) {
+			if (desc_remain < 20) {
 #if 1
 				if (dma->desc_count <= desc_info_pos) {
 					printk(KERN_ERR "desc_info overflow max=%d curr=%d",
@@ -163,14 +163,14 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 			ts_addr += DMA_PAGE_SIZE;
 
 			prev = curr;
-			desc_info->data_pos += sizeof(PT3_DMA_DESC);
+			desc_info->data_pos += 20;
 			if (desc_info->size <= desc_info->data_pos) {
 				printk(KERN_ERR "dma desc_info data overflow.");
 				return;
 			}
 			curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
-			desc_addr += sizeof(*curr);
-			desc_remain -= sizeof(*curr);
+			desc_addr += 20;
+			desc_remain -= 20;
 		}
 	}
 
