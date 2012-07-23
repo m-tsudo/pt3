@@ -443,7 +443,7 @@ pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 
 	// LPF tuning on
 	qm_sleep(qm, bus, 1);
-	qm->reg[0xc] |= 0x40;
+	qm->reg[0x0c] |= 0x40;
 	status = qm_write(qm, bus, 0x0c, qm->reg[0x0c]);
 	if (status)
 		return status;

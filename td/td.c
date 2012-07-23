@@ -156,11 +156,15 @@ last:
 int
 main(int argc, char * const argv[])
 {
+	/*
 	test_open(DEV0, "test0.ts");
 	test_open(DEV1, "test1.ts");
 	test_open(DEV2, "test2.ts");
 	test_open(DEV3, "test3.ts");
+	*/
 
-	rec_open(DEV0, "rec0.ts", 10);
-	rec_open(DEV3, "rec3.ts", 22);
+	rec_open(DEV0, "rec0.ts", 0);
+	rec_open(DEV1, "rec1.ts", 5);
+	rec_open(DEV2, "rec2.ts", 99);
+	rec_open(DEV3, "rec3.ts", 76);
 }

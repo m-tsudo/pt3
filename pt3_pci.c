@@ -215,6 +215,34 @@ get_tuner_status(int isdb, PT3_TUNER *tuner)
 #endif
 
 static STATUS
+set_id_s(PT3_TUNER *tuner, __u32 id)
+{
+	STATUS status;
+
+	status = pt3_tc_write_id_s(tuner->tc_s, NULL, (__u16)id);
+
+	return status;
+}
+
+static STATUS
+get_id_s(PT3_TUNER *tuner, __u32 *id)
+{
+	STATUS status;
+	__u16 short_id;
+
+	if (id == NULL)
+		return STATUS_INVALID_PARAM_ERROR;
+	
+	status = pt3_tc_read_id_s(tuner->tc_s, NULL, &short_id);
+	if (status)
+		return status;
+
+	*id = short_id;
+
+	return status;
+}
+
+static STATUS
 get_tmcc_s(PT3_TUNER *tuner, TMCC_S *tmcc)
 {
 	if (tmcc == NULL)
@@ -372,7 +400,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(100));	
+	schedule_timeout_interruptible(msecs_to_jiffies(20));	
 
 	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
@@ -381,7 +409,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		goto last;
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(100));	
+	schedule_timeout_interruptible(msecs_to_jiffies(120));	
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -400,7 +428,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(100));	
+	schedule_timeout_interruptible(msecs_to_jiffies(20));	
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
@@ -447,7 +475,7 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	pt3_bus_end(bus);
 	bus->inst_addr = PT3_BUS_INST_ADDR0;
 
-#if 0
+#if 1
 	if (!pt3_i2c_is_clean(i2c)) {
 		printk(KERN_INFO "I2C bus is dirty.");
 		status = pt3_i2c_run(i2c, bus, NULL, 0);
@@ -492,11 +520,64 @@ last:
 static STATUS
 SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 {
+	TMCC_S tmcc_s;
+	TMCC_T tmcc_t;
 	STATUS status;
+	__u32 i, tsid;
 
 	status = set_frequency(channel->type, channel->tuner, freq->channel, 0);
+	if (status)
+		return status;
 
-	return status;
+	switch (channel->type) {
+	case PT3_ISDB_S :
+		for (i = 0; i < 100; i++) {
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
+			status = get_tmcc_s(channel->tuner, &tmcc_s);
+			if (!status)
+				break;
+		}
+		if (status) {
+			printk(KERN_ERR "fail get_tmcc_s status=0x%x", status);
+			return status;
+		}
+#if 0
+		printk(KERN_DEBUG "tmcc_s.id = 0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x",
+				tmcc_s.id[0], tmcc_s.id[1], tmcc_s.id[2], tmcc_s.id[3],
+				tmcc_s.id[4], tmcc_s.id[5], tmcc_s.id[6], tmcc_s.id[7]);
+#endif
+		status = set_id_s(channel->tuner, tmcc_s.id[0]);
+		if (status) {
+			printk(KERN_ERR "fail set_tmcc_s status=0x%x", status);
+			return status;
+		}
+		for (i = 0; i < 100; i++) {
+			status = get_id_s(channel->tuner, &tsid);
+			if (status) {
+				printk(KERN_ERR "fail get_id_s status=0x%x", status);
+				return status;
+			}
+			printk(KERN_DEBUG "tsid=0x%x", tsid);
+			if ((tsid & 0xffff) == tmcc_s.id[0])
+				return STATUS_OK;
+		}
+		break;
+	case PT3_ISDB_T :
+		for (i = 0; i < 100; i++) {
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
+			status = get_tmcc_t(channel->tuner, &tmcc_t);
+			if (!status)
+				break;
+		}
+		if (status) {
+			printk(KERN_ERR "fail get_tmcc_t status=0x%x", status);
+			return status;
+		}
+		return status;
+		break;
+	}
+
+	return STATUS_INVALID_PARAM_ERROR;
 }
 
 static int pt3_open(struct inode *inode, struct file *file)
@@ -602,8 +683,6 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 {
 	PT3_CHANNEL *channel;
 	FREQUENCY freq;
-	TMCC_S tmcc_s;
-	TMCC_T tmcc_t;
 	int status, lnb_eff, lnb_usr;
 	unsigned int count;
 	unsigned long dummy;
@@ -673,26 +752,7 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		count = (int)pt3_dma_get_ts_error_packet_count(channel->dma);
 		dummy = copy_to_user(arg, &count, sizeof(unsigned int));
 		return 0;
-	case GET_TMCC_S :
-		if (channel->type == PT3_ISDB_S) {
-			status = get_tmcc_s(channel->tuner, &tmcc_s);
-			if (status)
-				return -status;
-			dummy = copy_to_user(arg, &tmcc_s, sizeof(TMCC_S));
-			return 0;
-		};
-		return -EINVAL;
-	case GET_TMCC_T :
-		if (channel->type == PT3_ISDB_T) {
-			status = get_tmcc_t(channel->tuner, &tmcc_t);
-			if (status)
-				return -status;
-			dummy = copy_to_user(arg, &tmcc_t, sizeof(TMCC_T));
-			return 0;
-		};
-		return -EINVAL;
 	}
-
 	return -EINVAL;
 }
 
@@ -757,7 +817,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	if (rc)
 		return rc;
 
-	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
+	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
 	if (rc) {
 		printk(KERN_ERR "PT3:DMA MASK ERROR");
 		return rc;

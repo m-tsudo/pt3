@@ -75,8 +75,9 @@ datan(PT3_BUS *bus, __u32 index, __u32 n)
 		printk(KERN_ERR "PT3: buf is not ready.");
 		return 0;
 	}
-	if (index + n < bus->buf_size) {
-		printk(KERN_ERR "PT3: buf does not  have enough size.");
+	if (bus->buf_size < index + n) {
+		printk(KERN_ERR "PT3: buf does not  have enough size. buf_size=%d",
+				bus->buf_size);
 		return 0;
 	}
 
@@ -115,6 +116,7 @@ pt3_bus_write(PT3_BUS *bus, const __u8 *data, __u32 size)
 
 	for (i = 0; i < size; i++) {
 		byte = data[i];
+		//printk(KERN_DEBUG "bus write data=0x%02x", data[i]);
 		for (j = 0; j < 8; j++) {
 			add_instruction(bus, BIT_SHIFT_MASK(byte, 7 - j, 1) ?
 									I_DATA_H_NOP : I_DATA_L_NOP);

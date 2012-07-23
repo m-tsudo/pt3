@@ -279,7 +279,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	int ready;
 	PT3_DMA_PAGE *page;
 	size_t csize, remain;
-	__u32 prev;
+	__s32 prev;
 	__u8 *p;
 
 	mutex_lock(&dma->lock);

@@ -601,6 +601,32 @@ pt3_tc_read_tmcc_t(PT3_TC *tc, PT3_BUS *bus, TMCC_T *tmcc)
 	return status;
 }
 
+STATUS
+pt3_tc_write_id_s(PT3_TC *tc, PT3_BUS *bus, __u16 id)
+{
+	STATUS status;
+	__u8 data[2] = { id >> 8, (__u8)id };
+
+	status = pt3_tc_write(tc, bus, 0x8f, data, sizeof(data));
+
+	return status;
+}
+
+STATUS
+pt3_tc_read_id_s(PT3_TC *tc, PT3_BUS *bus, __u16 *id)
+{
+	STATUS status;
+	__u8 data[2];
+
+	status = tc_read(tc, bus, 0xe6, data, sizeof(data));
+	if (status)
+		return status;
+
+	*id = byte2(data);
+
+	return status;
+}
+
 __u32
 pt3_tc_index(PT3_TC *tc)
 {
