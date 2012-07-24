@@ -407,11 +407,13 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 
 	schedule_timeout_interruptible(msecs_to_jiffies(20));	
 
-	tuner = &dev_conf->tuner[1];
-	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
-	if (status) {
-		printk(KERN_DEBUG "fail set powers.");
-		goto last;
+	for (i = 0; i < MAX_TUNER; i++) {
+		tuner = &dev_conf->tuner[i];
+		status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
+		if (status) {
+			printk(KERN_DEBUG "fail set powers.[%d]", i);
+			goto last;
+		}
 	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(120));	
@@ -454,10 +456,13 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		goto last;
 	}
 
-	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
-	if (status) {
-		printk(KERN_DEBUG "fail tc_set_powers,");
-		goto last;
+	for (i = 0; i < MAX_TUNER; i++) {
+		tuner = &dev_conf->tuner[i];
+		status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
+		if (status) {
+			printk(KERN_DEBUG "fail tc_set_powers,[%d]", i);
+			goto last;
+		}
 	}
 
 last:
@@ -672,7 +677,7 @@ count_used_bs_tuners(PT3_DEVICE *device)
 			count++;
 	}
 
-	printk(KERN_INFO "used bs tuners on %p = %d", device, count);
+	// printk(KERN_INFO "used bs tuners on %p = %d", device, count);
 
 	return count;
 }

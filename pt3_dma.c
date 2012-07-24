@@ -307,7 +307,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 			if (dma->ts_pos >= dma->ts_count)
 				dma->ts_pos = 0;
 		}
-		schedule_timeout_interruptible(msecs_to_jiffies(1));
+		schedule_timeout_interruptible(msecs_to_jiffies(0));
 	}
 	mutex_unlock(&dma->lock);
 
