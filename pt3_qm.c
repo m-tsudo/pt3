@@ -244,11 +244,6 @@ qm_tuning(PT3_QM *qm, PT3_BUS *bus, __u32 *sd, __u32 channel)
 	*sd = SD_TABLE[channel][index][0];
 	N = SD_TABLE[channel][index][1];
 	A = SD_TABLE[channel][index][2];
-	printk(KERN_DEBUG "channel=%d index=%d sd=0x%x N=0x%x A=0x%x",
-		channel, index,
-		SD_TABLE[channel][index][0],
-		SD_TABLE[channel][index][1],
-		SD_TABLE[channel][index][2]);
 #endif
 	qm->reg[0x06] &= 0x40;
 	qm->reg[0x06] |= N;
@@ -504,7 +499,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	else
 		freq_khz += 500;
 	qm->param.channel_freq = freq_khz;
-	printk(KERN_DEBUG "frequency %d Khz", freq_khz);
+	// printk(KERN_DEBUG "frequency %d Khz", freq_khz);
 
 
 	status = qm_local_lpf_tuning(qm, NULL, 1, channel);

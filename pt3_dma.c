@@ -23,6 +23,7 @@
 #include "pt3_bus.h"
 #include "pt3_dma.h"
 
+#define DMA_DESC_SIZE		20
 #define DMA_PAGE_SIZE		4096
 #define MAX_DESCS			204		/* 4096 / 20 */
 #define BLOCK_COUNT			32
@@ -48,15 +49,17 @@ gray2binary(__u32 gray, __u32 bit)
 }
 
 static void
-dma_write_descriptor(__u64 ts_addr, __u32 size, __u64 next_addr, PT3_DMA_DESC *desc)
+dma_link_descriptor(__u64 next_addr, __u8 *desc)
 {
-	desc->page_addr = ts_addr;
-	desc->page_size = size;
-	desc->next_addr = next_addr;
-#if 0
-	printk(KERN_DEBUG "descriptor : page_addr=%llx page_size=%08d next_addr=%llx",
-				desc->page_addr, desc->page_size, desc->next_addr);
-#endif
+	(*(__u64 *)(desc + 12)) = next_addr | 2;
+}
+
+static void
+dma_write_descriptor(__u64 ts_addr, __u32 size, __u64 next_addr, __u8 *desc)
+{
+	(*(__u64 *)(desc +  0)) = ts_addr   | 7;
+	(*(__u32 *)(desc +  8)) = size      | 7;
+	(*(__u64 *)(desc + 12)) = next_addr | 2;
 }
 
 void
@@ -65,7 +68,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 	PT3_DMA_PAGE *desc_info, *ts_info;
 	__u64 ts_addr, desc_addr;
 	__u32 i, j, ts_size, desc_remain, ts_info_pos, desc_info_pos;
-	PT3_DMA_DESC *prev, *curr;
+	__u8 *prev, *curr;
 
 	if (dma == NULL) {
 		printk(KERN_ERR "dma build page descriptor needs DMA");
@@ -88,7 +91,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 	desc_addr = desc_info->addr;
 	desc_remain = desc_info->size;
 	desc_info->data_pos = 0;
-	curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
+	curr = &desc_info->data[desc_info->data_pos];
 	prev = NULL;
 #if 1
 	if (curr == NULL) {
@@ -127,7 +130,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 		}
 #endif
 		for (j = 0; j < ts_size / DMA_PAGE_SIZE; j++) {
-			if (desc_remain < 20) {
+			if (desc_remain < DMA_DESC_SIZE) {
 #if 1
 				if (dma->desc_count <= desc_info_pos) {
 					printk(KERN_ERR "desc_info overflow max=%d curr=%d",
@@ -137,7 +140,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 #endif
 				desc_info = &dma->desc_info[desc_info_pos];
 				desc_info->data_pos = 0;
-				curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
+				curr = &desc_info->data[desc_info->data_pos];
 #if 1
 				if (curr == NULL) {
 					printk(KERN_ERR "dma maybe failed allocate desc_info->data %d",
@@ -153,8 +156,9 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 				desc_remain = desc_info->size;
 				desc_info_pos++;
 			}
-			if (prev != NULL)
-				prev->next_addr = desc_addr;
+			if (prev != NULL) {
+				dma_link_descriptor(desc_addr, prev);
+			}
 			dma_write_descriptor(ts_addr, DMA_PAGE_SIZE, 0, curr);
 #if 0
 			printk(KERN_DEBUG "dma write desc ts_addr=0x%llx desc_info_pos=%d",
@@ -163,55 +167,24 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 			ts_addr += DMA_PAGE_SIZE;
 
 			prev = curr;
-			desc_info->data_pos += 20;
+			desc_info->data_pos += DMA_DESC_SIZE;
 			if (desc_info->size <= desc_info->data_pos) {
 				printk(KERN_ERR "dma desc_info data overflow.");
 				return;
 			}
-			curr = (PT3_DMA_DESC *)&desc_info->data[desc_info->data_pos];
-			desc_addr += 20;
-			desc_remain -= 20;
+			curr = &desc_info->data[desc_info->data_pos];
+			desc_addr += DMA_DESC_SIZE;
+			desc_remain -= DMA_DESC_SIZE;
 		}
 	}
 
 	if (prev != NULL) {
 		if (loop)
-			prev->next_addr = dma->desc_info->addr;
+			dma_link_descriptor(dma->desc_info->addr, prev);
 		else
-			prev->next_addr = 1;
+			dma_link_descriptor(1, prev);
 	}
 }
-
-#if 0
-static void
-dma_check_page_descriptor(PT3_DMA *dma)
-{
-	__u32 remain;
-	__u32 i;
-	PT3_DMA_PAGE *page;
-	PT3_DMA_DESC *desc;
-
-	for (i = 0; i < dma->desc_count; i++) {
-		page = &dma->desc_info[i];
-		remain = page->size;
-		desc = (PT3_DMA_DESC*)&page->data[0];
-		while (0 < remain) {
-			if (remain < sizeof(*desc)) {
-				printk(KERN_DEBUG "remain = %d", remain);
-				break;
-			}
-			if (desc->page_addr == 0) {
-				printk(KERN_DEBUG "page_addr = 0 remain = %d", remain);
-				break;
-			}
-			printk(KERN_DEBUG "descriptor : page_addr=%llx page_size=%08d next_addr=%llx",
-				desc->page_addr, desc->page_size, desc->next_addr);
-			desc++;
-			remain -= sizeof(*desc);
-		}
-	}
-}
-#endif
 
 void __iomem *
 get_base_addr(PT3_DMA *dma)
@@ -234,7 +207,6 @@ pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
 #endif
 
 	writel(data, base + 0x0c);
-	printk(KERN_DEBUG "set_test_mode.");
 }
 
 void
@@ -248,20 +220,26 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 	start_addr = dma->desc_info->addr;
 
 	if (enabled) {
-		printk(KERN_DEBUG "enable dma real_index=%d start_addr=%llx offset=0x%x",
+#if 0
+		printk(KERN_DEBUG "enable dma real_index=%d start_addr=%llx offset=0x%lx",
 				dma->real_index, start_addr, base - dma->i2c->bar[0].regs);
+#endif
 		pt3_dma_reset(dma);
-		printk(KERN_DEBUG "dma buffer reset. 0x%02x", dma->ts_info[1].data[0]);
+		// printk(KERN_DEBUG "dma buffer reset. 0x%02x", dma->ts_info[1].data[0]);
 		writel( 1 << 1, base + 0x08);
 		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
+		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
+#if 0
 		printk(KERN_DEBUG "set descriptor address low %llx",
 				BIT_SHIFT_MASK(start_addr,  0, 32));
-		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
 		printk(KERN_DEBUG "set descriptor address heigh %llx",
 				BIT_SHIFT_MASK(start_addr, 32, 32));
+#endif
 		writel( 1 << 0, base + 0x08);
 	} else {
+#if 0
 		printk(KERN_DEBUG "disable dma real_index=%d", dma->real_index);
+#endif
 		writel(1 << 1, base + 0x08);
 		while (1) {
 			data = readl(base + 0x10);
@@ -316,7 +294,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 		}
 		*ppos += csize;
 #if 0
-		printk(KERN_DEBUG "copy_to_user ppos=%lld size=%d ts_pos=%d data_size = %d data_pos=%d",
+		printk(KERN_DEBUG "copy_to_user ppos=%lld size=%zd ts_pos=%d data_size = %d data_pos=%d",
 				*ppos, csize, dma->ts_pos, page->size, page->data_pos);
 #endif
 		remain -= csize;

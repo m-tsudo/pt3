@@ -5,12 +5,6 @@
 #include "pt3_bus.h"
 #include "pt3_i2c.h"
 
-typedef struct _PT3_DMA_DESC {
-	__u64 page_addr;
-	__u32 page_size;
-	__u64 next_addr;
-} PT3_DMA_DESC;
-
 typedef struct _PT3_DMA_PAGE {
 	dma_addr_t addr;
 	__u8 *data;

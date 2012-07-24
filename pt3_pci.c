@@ -183,11 +183,15 @@ ep4c_init(PT3_DEVICE *dev_conf)
 
 	val = readl(dev_conf->bar[0].regs + REGS_SYSTEM_R);
 	dev_conf->system.can_transport_ts = ((val >> 5) & 0x01);
+#if 0
 	printk(KERN_DEBUG "can_transport_ts = %d\n",
 						dev_conf->system.can_transport_ts);
+#endif
 	dev_conf->system.dma_descriptor_page_size = (val & 0x1F);
+#if 0
 	printk(KERN_DEBUG "dma_descriptor_page_size = %d\n",
 						dev_conf->system.dma_descriptor_page_size);
+#endif
 
 	return 0;
 }
@@ -295,8 +299,10 @@ set_frequency(int isdb, PT3_TUNER *tuner, __u32 channel, __s32 offset)
 {
 	STATUS status;
 
+#if 0
 	printk(KERN_DEBUG "set_freq isdb=%d tuner_no=%d channel=%d offset=%d",
 			isdb, tuner->tuner_no, channel, offset);
+#endif
 
 	switch (isdb) {
 	case PT3_ISDB_S :
@@ -328,8 +334,10 @@ set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 		status = STATUS_INVALID_PARAM_ERROR;
 	}
 
+#if 0
 	printk(KERN_DEBUG "set_tuner_sleep isdb=%d tuner_no=%d sleep=%d status=0x%x",
 				isdb, tuner->tuner_no, sleep, status);
+#endif
 
 	return status;
 }
@@ -416,13 +424,13 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		tuner = &dev_conf->tuner[i];
 		status = pt3_tc_set_ts_pins_mode_s(tuner->tc_s, NULL, &pins);
 		if (status)
-			printk(KERN_DEBUG "set ts pins mode s [%d] status=0x%x", i, status);
+			printk(KERN_DEBUG "fail set ts pins mode s [%d] status=0x%x", i, status);
 	}
 	for (i = 0; i < MAX_TUNER; i++) {
 		tuner = &dev_conf->tuner[i];
 		status = pt3_tc_set_ts_pins_mode_t(tuner->tc_t, NULL, &pins);
 		if (status)
-			printk(KERN_DEBUG "set ts pins mode t [%d] status=0x%x", i, status);
+			printk(KERN_DEBUG "fail set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
 	schedule_timeout_interruptible(msecs_to_jiffies(20));	
@@ -480,7 +488,7 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	status = tuner_power_on(dev_conf, bus);
 	if (status)
 		goto last;
-	printk(KERN_DEBUG "tuner_power_on");
+	// printk(KERN_DEBUG "tuner_power_on");
 	
 	for (i = 0; i < MAX_TUNER; i++) {
 		for (j = 0; j < PT3_ISDB_MAX; j++) {
@@ -529,7 +537,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			printk(KERN_ERR "fail get_tmcc_s status=0x%x", status);
 			return status;
 		}
-#if 1
+#if 0
 		printk(KERN_DEBUG "tmcc_s.id = 0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x",
 				tmcc_s.id[0], tmcc_s.id[1], tmcc_s.id[2], tmcc_s.id[3],
 				tmcc_s.id[4], tmcc_s.id[5], tmcc_s.id[6], tmcc_s.id[7]);
@@ -594,8 +602,10 @@ static int pt3_open(struct inode *inode, struct file *file)
 						printk(KERN_DEBUG "device is already used.");
 						return -EIO;
 					}
+#if 0
 					printk(KERN_DEBUG "PT3: selected tuner_no=%d type=%d",
 							channel->tuner->tuner_no, channel->type);
+#endif
 
 					set_tuner_sleep(channel->type, channel->tuner, 0);
 					schedule_timeout_interruptible(msecs_to_jiffies(100));
@@ -724,10 +734,10 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		return 0;
 	case SET_TEST_MODE_ON:
 		pt3_dma_build_page_descriptor(channel->dma, 0);
-		printk(KERN_DEBUG "rebuild dma descriptor.");
+		// printk(KERN_DEBUG "rebuild dma descriptor.");
 		status = (1 + channel->dma->real_index) * 12345;
 		pt3_dma_set_test_mode(channel->dma, 1, (__u16)status, 0, 0);
-		printk(KERN_DEBUG "set test mode.");
+		// printk(KERN_DEBUG "set test mode.");
 		schedule_timeout_interruptible(msecs_to_jiffies(10));	
 		pt3_dma_set_enabled(channel->dma, 1);
 		schedule_timeout_interruptible(msecs_to_jiffies(10));	
@@ -818,7 +828,9 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		return rc;
 
 	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
-	if (rc) {
+	if (!rc) {
+		pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+	} else {
 		printk(KERN_ERR "PT3:DMA MASK ERROR");
 		return rc;
 	}
