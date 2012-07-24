@@ -671,7 +671,7 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 {
 	PT3_CHANNEL *channel;
 	FREQUENCY freq;
-	int status, lnb_eff, lnb_usr;
+	int status, signal, lnb_eff, lnb_usr;
 	unsigned int count;
 	unsigned long dummy;
 	char *voltage[] = {"0V", "11V", "15V"};
@@ -689,6 +689,18 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 		return 0;
 	case STOP_REC:
 		pt3_dma_set_enabled(channel->dma, 0);
+		return 0;
+	case GET_SIGNAL_STRENGTH:
+		// TODO
+		switch (channel->type) {
+		case PT3_ISDB_S:
+			signal = 0;
+			break;
+		case PT3_ISDB_T:
+			signal = 0;
+			break;
+		}
+		dummy = copy_to_user(arg, &signal, sizeof(int));
 		return 0;
 	case LNB_ENABLE:
 		count = count_used_bs_tuners(channel->ptr);
