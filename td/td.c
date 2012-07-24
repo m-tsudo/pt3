@@ -16,7 +16,6 @@
 int
 test_open(const char* src, const char* dst)
 {
-	FREQUENCY freq;
 	char buf[1024 * 6];
 	size_t rsize;
 	int fd_src, fd_dst, i, status, rc;
@@ -96,10 +95,12 @@ rec_open(const char* src, const char* dst, int channel)
 		perror("fail get status");
 	printf("status = 0x%08x\n", status);
 
-	freq.channel = channel;
+	freq.frequencyno = channel;
+	freq.slot = 0;
 	rc = ioctl(fd_src, SET_CHANNEL, &freq);
 	if (rc)
-		fprintf(stderr, "set channel %d rc=0x%x\n", freq.channel, rc);
+		fprintf(stderr, "set frequencyno=%d slot=%d rc=0x%x\n",
+				freq.frequencyno, freq.slot, rc);
 
 	rc = ioctl(fd_src, GET_STATUS, &status);
 	if (rc < 0)

@@ -300,7 +300,7 @@ set_frequency(int isdb, PT3_TUNER *tuner, __u32 channel, __s32 offset)
 
 	switch (isdb) {
 	case PT3_ISDB_S :
-		status = pt3_qm_set_frequency(tuner->qm, channel, offset);
+		status = pt3_qm_set_frequency(tuner->qm, channel, 0);
 		break;
 	case PT3_ISDB_T :
 		status = pt3_mx_set_frequency(tuner->mx, channel, offset);
@@ -513,7 +513,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 	STATUS status;
 	__u32 i, tsid;
 
-	status = set_frequency(channel->type, channel->tuner, freq->channel, 0);
+	status = set_frequency(channel->type, channel->tuner, freq->frequencyno, freq->slot);
 	if (status)
 		return status;
 
@@ -534,7 +534,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 				tmcc_s.id[0], tmcc_s.id[1], tmcc_s.id[2], tmcc_s.id[3],
 				tmcc_s.id[4], tmcc_s.id[5], tmcc_s.id[6], tmcc_s.id[7]);
 #endif
-		status = set_id_s(channel->tuner, tmcc_s.id[0]);
+		status = set_id_s(channel->tuner, tmcc_s.id[freq->slot]);
 		if (status) {
 			printk(KERN_ERR "fail set_tmcc_s status=0x%x", status);
 			return status;

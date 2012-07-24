@@ -4,8 +4,9 @@
 #include <asm/types.h>
 
 typedef	struct	_frequency{
-	int channel;
-}FREQUENCY;
+	int frequencyno;
+	int slot;
+} FREQUENCY;
 
 #define		SET_CHANNEL	_IOW(0x8d, 0x01, FREQUENCY)
 #define		START_REC	_IO(0x8d, 0x02)
