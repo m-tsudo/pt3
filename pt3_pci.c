@@ -405,16 +405,16 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(100));	
+	schedule_timeout_interruptible(msecs_to_jiffies(20));	
 
-	tuner = &dev_conf->tuner[0];
+	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
 	if (status) {
 		printk(KERN_DEBUG "fail set powers.");
 		goto last;
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(150));	
+	schedule_timeout_interruptible(msecs_to_jiffies(120));	
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -433,7 +433,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "fail set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(200));	
+	schedule_timeout_interruptible(msecs_to_jiffies(20));	
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
@@ -454,7 +454,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		goto last;
 	}
 
-	tuner = &dev_conf->tuner[0];
+	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
 	if (status) {
 		printk(KERN_DEBUG "fail tc_set_powers,");
