@@ -405,18 +405,16 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "tc_init_t[%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(20));	
+	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
-	for (i = 0; i < MAX_TUNER; i++) {
-		tuner = &dev_conf->tuner[i];
-		status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
-		if (status) {
-			printk(KERN_DEBUG "fail set powers.[%d]", i);
-			goto last;
-		}
+	tuner = &dev_conf->tuner[0];
+	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
+	if (status) {
+		printk(KERN_DEBUG "fail set powers.");
+		goto last;
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(120));	
+	schedule_timeout_interruptible(msecs_to_jiffies(150));	
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -435,7 +433,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_DEBUG "fail set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(20));	
+	schedule_timeout_interruptible(msecs_to_jiffies(200));	
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
@@ -456,13 +454,11 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 		goto last;
 	}
 
-	for (i = 0; i < MAX_TUNER; i++) {
-		tuner = &dev_conf->tuner[i];
-		status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
-		if (status) {
-			printk(KERN_DEBUG "fail tc_set_powers,[%d]", i);
-			goto last;
-		}
+	tuner = &dev_conf->tuner[0];
+	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 1);
+	if (status) {
+		printk(KERN_DEBUG "fail tc_set_powers,");
+		goto last;
 	}
 
 last:
@@ -488,6 +484,7 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 		status = pt3_i2c_run(i2c, bus, NULL, 0);
 		if (status)
 			goto last;
+		schedule_timeout_interruptible(msecs_to_jiffies(10));
 	}
 
 	status = tuner_power_on(dev_conf, bus);
@@ -834,7 +831,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 
 	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
 	if (!rc) {
-		pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+		rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
 	} else {
 		printk(KERN_ERR "PT3:DMA MASK ERROR");
 		return rc;
@@ -882,7 +879,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	dev_conf->i2c = create_pt3_i2c(&dev_conf->bar[0]);
 	if (dev_conf->i2c == NULL) {
 		printk(KERN_ERR "PT3: cannot allocate i2c.");
-		goto out_err_i2c;
+		goto out_err_fpga;
 	}
 	//printk(KERN_DEBUG "Allocate PT3_I2C.");
 
@@ -927,7 +924,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 
 	rc =alloc_chrdev_region(&dev_conf->dev, 0, MAX_CHANNEL, DEV_NAME);
 	if (rc < 0)
-		goto out_err_fpga;
+		goto out_err_i2c;
 	minor = MINOR(dev_conf->dev);
 	dev_conf->base_minor = minor;
 	for (lp = 0; lp < MAX_CHANNEL; lp++) {

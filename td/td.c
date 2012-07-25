@@ -159,20 +159,19 @@ main(int argc, char * const argv[])
 {
 	int i;
 	char str[100];
-	/*
+
 	test_open(DEV0, "test0.ts");
 	test_open(DEV1, "test1.ts");
 	test_open(DEV2, "test2.ts");
 	test_open(DEV3, "test3.ts");
-	*/
 
 	/*
 	for (i = 0; i < 36; i++) {
 		sprintf(str, "rec0-%02d.ts", i);
 		rec_open(DEV0, str, i);
 	}
-	*/
 	rec_open(DEV1, "rec1.ts", 21);
 	rec_open(DEV2, "rec2.ts", 99);
 	rec_open(DEV3, "rec3.ts", 76);
+	*/
 }

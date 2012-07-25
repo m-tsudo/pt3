@@ -268,47 +268,46 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 #endif
 
 	remain = size;
-	while (1) {
-		if (remain <= 0)
-			break;
+	for (;;) {
 		if (look_ready) {
 			ready = pt3_dma_ready(dma);
 			if (!ready)
 				break;
+			prev = dma->ts_pos - 1;
+			if (prev < 0)
+				prev = dma->ts_count - 1;
+			if (dma->ts_info[prev].data[0] != NOT_SYNC_BYTE)
+				printk(KERN_INFO "dma buffer overflow.");
 		}
-		prev = dma->ts_pos - 1;
-		if (prev < 0)
-			prev = dma->ts_count - 1;
-		if (dma->ts_info[prev].data[0] != NOT_SYNC_BYTE)
-			printk(KERN_INFO "dma buffer overflow.");
-
 		page = &dma->ts_info[dma->ts_pos];
-		if ((page->size - page->data_pos) > remain) {
-			csize = remain;
-		} else {
-			csize = (page->size - page->data_pos);
+		for (;;) {
+			if ((page->size - page->data_pos) > remain) {
+				csize = remain;
+			} else {
+				csize = (page->size - page->data_pos);
+			}
+			if (copy_to_user(&buf[size - remain], &page->data[page->data_pos], csize)) {
+				mutex_unlock(&dma->lock);
+				return -EFAULT;
+			}
+			*ppos += csize;
+			remain -= csize;
+			page->data_pos += csize;
+			if (page->data_pos >= page->size) {
+				page->data_pos = 0;
+				p = &page->data[page->data_pos];
+				*p = NOT_SYNC_BYTE;
+				dma->ts_pos++;
+				if (dma->ts_pos >= dma->ts_count)
+					dma->ts_pos = 0;
+				break;
+			}
+			if (remain <= 0)
+				goto last;
 		}
-		if (copy_to_user(&buf[size - remain], &page->data[page->data_pos], csize)) {
-			mutex_unlock(&dma->lock);
-			return -EFAULT;
-		}
-		*ppos += csize;
-#if 0
-		printk(KERN_DEBUG "copy_to_user ppos=%lld size=%zd ts_pos=%d data_size = %d data_pos=%d",
-				*ppos, csize, dma->ts_pos, page->size, page->data_pos);
-#endif
-		remain -= csize;
-		page->data_pos += csize;
-		if (page->data_pos >= page->size) {
-			page->data_pos = 0;
-			p = &page->data[page->data_pos];
-			*p = NOT_SYNC_BYTE;
-			dma->ts_pos++;
-			if (dma->ts_pos >= dma->ts_count)
-				dma->ts_pos = 0;
-		}
-		schedule_timeout_interruptible(msecs_to_jiffies(0));
+		// schedule_timeout_interruptible(msecs_to_jiffies(0));
 	}
+last:
 	mutex_unlock(&dma->lock);
 
 	return size - remain;
