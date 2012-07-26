@@ -494,6 +494,39 @@ last:
 }
 
 static STATUS
+get_cn_agc(PT3_CHANNEL *channel, __u32 *cn, __u32 *curr_agc, __u32 *max_agc)
+{
+	STATUS status;
+	PT3_TUNER *tuner = channel->tuner;
+	__u8 byte_agc;
+
+	switch (channel->type) {
+	case PT3_ISDB_S:
+		status = pt3_tc_read_cn_s(tuner->tc_s, NULL, cn);
+		if (status)
+			return status;
+		status = pt3_tc_read_agc_s(tuner->tc_s, NULL, &byte_agc);
+		if (status)
+			return status;
+		*curr_agc = byte_agc;
+		*max_agc = 127;
+		break;
+	case PT3_ISDB_T:
+		status = pt3_tc_read_cndat_t(tuner->tc_s, NULL, cn);
+		if (status)
+			return status;
+		status = pt3_tc_read_ifagc_dt(tuner->tc_t, NULL, &byte_agc);
+		if (status)
+			return status;
+		*curr_agc = byte_agc;
+		*max_agc = 255;
+		break;
+	}
+
+	return STATUS_OK;
+}
+
+static STATUS
 SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 {
 	TMCC_S tmcc_s;
@@ -508,7 +541,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 	switch (channel->type) {
 	case PT3_ISDB_S :
 		for (i = 0; i < 100; i++) {
-			schedule_timeout_interruptible(msecs_to_jiffies(1));
+			schedule_timeout_interruptible(msecs_to_jiffies(2));
 			status = get_tmcc_s(channel->tuner, &tmcc_s);
 			if (!status)
 				break;
@@ -528,7 +561,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			return status;
 		}
 		for (i = 0; i < 100; i++) {
-			schedule_timeout_interruptible(msecs_to_jiffies(1));
+			schedule_timeout_interruptible(msecs_to_jiffies(2));
 			status = get_id_s(channel->tuner, &tsid);
 			if (status) {
 				printk(KERN_ERR "fail get_id_s status=0x%x", status);
@@ -666,7 +699,7 @@ pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	PT3_CHANNEL *channel;
 	FREQUENCY freq;
-	int status, signal, lnb_eff, lnb_usr;
+	int status, signal, curr_agc, max_agc, lnb_eff, lnb_usr;
 	unsigned int count;
 	unsigned long dummy;
 	char *voltage[] = {"0V", "11V", "15V"};
@@ -687,15 +720,9 @@ pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 		pt3_dma_set_enabled(channel->dma, 0);
 		return 0;
 	case GET_SIGNAL_STRENGTH:
-		// TODO
-		switch (channel->type) {
-		case PT3_ISDB_S:
-			signal = 0;
-			break;
-		case PT3_ISDB_T:
-			signal = 0;
-			break;
-		}
+		status = get_cn_agc(channel, &signal, &curr_agc, &max_agc);
+		if (status)
+			printk(KERN_INFO "PT3: fail get signal strength status=0x%x", status);
 		dummy = copy_to_user(arg, &signal, sizeof(int));
 		return 0;
 	case LNB_ENABLE:

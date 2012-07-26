@@ -41,6 +41,12 @@ byte2(const __u8 *data)
 	return (__u16)byten(data, 2);
 }
 
+static __u32
+byte3(const __u8 *data)
+{
+	return byten(data, 3);
+}
+
 __u8
 pt3_tc_address(__u32 pin, int isdb, __u32 index)
 {
@@ -641,6 +647,63 @@ pt3_tc_write_slptim(PT3_TC *tc, PT3_BUS *bus, int sleep)
 
 	data = (1 << 7) | ((sleep ? 1 :0) <<4);
 	status = pt3_tc_write(tc, bus, 0x03, &data, 1);
+
+	return status;
+}
+
+STATUS
+pt3_tc_read_agc_s(PT3_TC *tc, PT3_BUS *bus, __u8 *agc)
+{
+	STATUS status;
+	__u8 data;
+
+	status = tc_read(tc, bus, 0xba, &data, 1);
+	if (status)
+		return status;
+
+	*agc = data & 0x7f;
+
+	return status;
+}
+
+STATUS
+pt3_tc_read_ifagc_dt(PT3_TC *tc, PT3_BUS *bus, __u8 *ifagc_dt)
+{
+	STATUS status;
+
+	status = tc_read(tc, bus, 0x82, ifagc_dt, 1);
+	if (status)
+		return status;
+
+	return status;
+}
+
+STATUS
+pt3_tc_read_cn_s(PT3_TC *tc, PT3_BUS *bus, __u32 *cn)
+{
+	STATUS status;
+	__u8 data[2];
+
+	status = tc_read(tc, bus, 0xbc, data, sizeof(data));
+	if (status)
+		return status;
+
+	*cn = byte2(data);
+
+	return status;
+}
+
+STATUS
+pt3_tc_read_cndat_t(PT3_TC *tc, PT3_BUS *bus, __u32 *cn)
+{
+	STATUS status;
+	__u8 data[3];
+
+	status = tc_read(tc, bus, 0x8b, data, sizeof(data));
+	if (status)
+		return status;
+
+	*cn = byte3(data);
 
 	return status;
 }
