@@ -257,6 +257,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	int ready;
 	PT3_DMA_PAGE *page;
 	size_t csize, remain;
+	__u32 lp;
 	__s32 prev;
 	__u8 *p;
 
@@ -271,6 +272,11 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	for (;;) {
 		if (look_ready) {
 			ready = pt3_dma_ready(dma);
+			for (lp = 0; lp < 500; lp++) {
+				if (ready)
+					break;
+				schedule_timeout_interruptible(msecs_to_jiffies(1));
+			}
 			if (!ready)
 				break;
 			prev = dma->ts_pos - 1;
