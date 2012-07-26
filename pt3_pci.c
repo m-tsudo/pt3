@@ -677,7 +677,8 @@ pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 	switch (cmd) {
 	case SET_CHANNEL:
 		dummy = copy_from_user(&freq, arg, sizeof(FREQUENCY));
-		return SetChannel(channel, &freq);
+		status = SetChannel(channel, &freq);
+		return -status;
 	case START_REC:
 		pt3_dma_set_enabled(channel->dma, 1);
 		return 0;
@@ -799,8 +800,8 @@ static const struct file_operations pt3_fops = {
 	.llseek		=	no_llseek,
 };
 
-static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
-				     const struct pci_device_id *ent)
+static int __devinit
+pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int			rc ;
 	int			lp ;
@@ -995,7 +996,8 @@ out_err_pci:
 	return -EIO;
 }
 
-static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
+static void __devexit
+pt3_pci_remove_one(struct pci_dev *pdev)
 {
 	__u32 lp;
 	PT3_TUNER *tuner;
@@ -1085,8 +1087,8 @@ static struct pci_driver pt3_driver = {
 };
 
 
-static int
-__init pt3_pci_init(void)
+static int __init
+pt3_pci_init(void)
 {
 	printk(KERN_INFO "%s", version);
 	pt3video_class = class_create(THIS_MODULE, DRIVERNAME);
@@ -1096,8 +1098,8 @@ __init pt3_pci_init(void)
 }
 
 
-static void
-__exit pt3_pci_cleanup(void)
+static void __exit
+pt3_pci_cleanup(void)
 {
 	pci_unregister_driver(&pt3_driver);
 	class_destroy(pt3video_class);
