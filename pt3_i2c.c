@@ -29,7 +29,7 @@ wait(PT3_I2C *i2c, __u32 *data)
 	__u32 val;
 	
 	while (1) {
-		val = readl(i2c->bar[0].regs + REGS_I2C_R);
+		val = readl(i2c->bar[0] + REGS_I2C_R);
 		if (!BIT_SHIFT_MASK(val, 0, 1))
 			break;
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
@@ -49,7 +49,7 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 	if (start_addr >= (1 << 13))
 		printk(KERN_DEBUG "start address is over.");
 	
-	writel(1 << 16 | start_addr, i2c->bar[0].regs + REGS_I2C_W);
+	writel(1 << 16 | start_addr, i2c->bar[0] + REGS_I2C_W);
 #if 0
 	printk(KERN_DEBUG "run i2c start_addr=0x%x", start_addr);
 #endif
@@ -73,11 +73,11 @@ pt3_i2c_copy(PT3_I2C *i2c, PT3_BUS *bus)
 	__u32 i;
 
 	src = &bus->insts[0];
-	dst = i2c->bar[1].regs + DATA_OFFSET + (bus->inst_addr / 2);
+	dst = i2c->bar[1] + DATA_OFFSET + (bus->inst_addr / 2);
 
 #if 0
 	printk(KERN_DEBUG "PT3 : i2c_copy. base=%p dst=%p src=%p size=%d",
-						i2c->bar[1].regs, dst, src, bus->inst_pos);
+						i2c->bar[1], dst, src, bus->inst_pos);
 #endif
 
 #if 1
@@ -106,13 +106,13 @@ pt3_i2c_run(PT3_I2C *i2c, PT3_BUS *bus, __u32 *ack, int copy)
 	rsize = bus->read_addr;
 
 	for (i = 0; i < rsize; i++) {
-		pt3_bus_push_read_data(bus, readb(i2c->bar[1].regs + DATA_OFFSET + i));
+		pt3_bus_push_read_data(bus, readb(i2c->bar[1] + DATA_OFFSET + i));
 	}
 #if 0
 	if (rsize > 0) {
 		for (i = 1; i < 10; i++) {
 			printk(KERN_DEBUG "bus_read_data + %d = 0x%x inst = 0x%x",
-					i, readb(i2c->bar[1].regs + DATA_OFFSET + i),
+					i, readb(i2c->bar[1] + DATA_OFFSET + i),
 					bus->insts[i]);
 		}
 	}
@@ -128,7 +128,7 @@ pt3_i2c_is_clean(PT3_I2C *i2c)
 {
 	__u32 val;
 
-	val = readl(i2c->bar[0].regs + REGS_I2C_R);
+	val = readl(i2c->bar[0] + REGS_I2C_R);
 
 	return BIT_SHIFT_MASK(val, 3, 1);
 }
@@ -136,11 +136,11 @@ pt3_i2c_is_clean(PT3_I2C *i2c)
 void
 pt3_i2c_reset(PT3_I2C *i2c)
 {
-	writel(1 << 17, i2c->bar[0].regs + REGS_I2C_W);
+	writel(1 << 17, i2c->bar[0] + REGS_I2C_W);
 }
 
 PT3_I2C *
-create_pt3_i2c(BAR *bar)
+create_pt3_i2c(__u8 __iomem *bar[])
 {
 	PT3_I2C *i2c;
 
@@ -149,7 +149,8 @@ create_pt3_i2c(BAR *bar)
 		goto fail;
 
 	mutex_init(&i2c->lock);
-	i2c->bar = bar;
+	i2c->bar[0] = bar[0];
+	i2c->bar[1] = bar[1];
 
 	return i2c;
 fail:

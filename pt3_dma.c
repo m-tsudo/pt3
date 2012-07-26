@@ -189,7 +189,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 void __iomem *
 get_base_addr(PT3_DMA *dma)
 {
-	return dma->i2c->bar[0].regs + REGS_DMA_DESC_L + (0x18 * dma->real_index);
+	return dma->i2c->bar[0] + REGS_DMA_DESC_L + (0x18 * dma->real_index);
 }
 
 void

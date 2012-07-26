@@ -8,12 +8,6 @@
 #define		FALSE		0
 #define		TRUE		1
 
-typedef struct _BAR {
-	unsigned long	mmio_start ;
-	__u32			mmio_len ;
-	void __iomem		*regs;
-} BAR;
-
 enum {
 	PT3_ISDB_S,
 	PT3_ISDB_T,
