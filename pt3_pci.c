@@ -134,7 +134,7 @@ static struct class	*pt3video_class;
 #define		DRIVERNAME	"pt3video"
 
 static int
-ep4c_init(PT3_DEVICE *dev_conf)
+check_fpga_version(PT3_DEVICE *dev_conf)
 {
 	__u32	val;
 	
@@ -556,7 +556,8 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 	return STATUS_INVALID_PARAM_ERROR;
 }
 
-static int pt3_open(struct inode *inode, struct file *file)
+static int
+pt3_open(struct inode *inode, struct file *file)
 {
 	int major = imajor(inode);
 	int minor = iminor(inode);
@@ -605,7 +606,8 @@ static int pt3_open(struct inode *inode, struct file *file)
 	return -EIO;
 }
 
-static int pt3_release(struct inode *inode, struct file *file)
+static int
+pt3_release(struct inode *inode, struct file *file)
 {
 	PT3_CHANNEL *channel = file->private_data;
 
@@ -622,7 +624,8 @@ static int pt3_release(struct inode *inode, struct file *file)
 }
 
 static int dma_look_ready[MAX_CHANNEL] = {1, 1, 1, 1};
-static ssize_t pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t * ppos)
+static ssize_t
+pt3_read(struct file *file, char __user *buf, size_t cnt, loff_t * ppos)
 {
 	size_t rcnt;
 	PT3_CHANNEL *channel;
@@ -657,7 +660,8 @@ count_used_bs_tuners(PT3_DEVICE *device)
 	return count;
 }
 
-static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
+static long
+pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	PT3_CHANNEL *channel;
 	FREQUENCY freq;
@@ -746,7 +750,8 @@ static long pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg
 	return -EINVAL;
 }
 
-static long pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
+static long
+pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	long ret;
 	PT3_CHANNEL *channel = file->private_data;
@@ -758,7 +763,8 @@ static long pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned lo
 	return ret;
 }
 
-static long pt3_compat_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
+static long
+pt3_compat_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	long ret;
 	/* should do 32bit <-> 64bit conversion here? --yaz */
@@ -768,7 +774,8 @@ static long pt3_compat_ioctl(struct file  *file, unsigned int cmd, unsigned long
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
-static int pt3_ioctl(struct inode *inode, struct file  *file, unsigned int cmd, unsigned long arg0)
+static int
+pt3_ioctl(struct inode *inode, struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	int ret;
 	ret = (int)pt3_do_ioctl(file, cmd, arg0);
@@ -857,9 +864,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		goto out_err_fpga;
 	}
 
-	// 初期化処理
-	if(ep4c_init(dev_conf)){
-		printk(KERN_ERR "Error ep4c_init\n");
+	if(check_fpga_version(dev_conf)){
 		goto out_err_fpga;
 	}
 	mutex_init(&dev_conf->lock);
@@ -924,14 +929,14 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 		channel = kzalloc(sizeof(PT3_CHANNEL), GFP_KERNEL);
 		if (channel == NULL) {
 			printk(KERN_ERR "PT3:out of memory !");
-			goto out_err_v4l;
+			goto out_err_dma;
 		}
 
 		channel->dma = create_pt3_dma(pdev, dev_conf->i2c, real_channel[lp]);
 		if (channel->dma == NULL) {
 			printk(KERN_ERR "PT3: fail create dma.");
 			kfree(channel);
-			goto out_err_v4l;
+			goto out_err_dma;
 		}
 
 		mutex_init(&channel->lock);
@@ -944,15 +949,9 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 
 		dev_conf->channel[lp] = channel;
 
-		switch (channel->type) {
-		case PT3_ISDB_S :
-			break;
-		case PT3_ISDB_T :
-			break;
-		}
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-		printk(KERN_INFO "PT3:card_number = %d\n", dev_conf->card_number);
+		printk(KERN_INFO "PT3:card_number = %d channel=%d\n",
+					dev_conf->card_number, real_channel[lp]);
 		device_create(pt3video_class,
 					NULL,
 					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
@@ -971,7 +970,7 @@ static int __devinit pt3_pci_init_one (struct pci_dev *pdev,
 	pci_set_drvdata(pdev, dev_conf);
 	return 0;
 
-out_err_v4l:
+out_err_dma:
 	for (lp = 0; lp < MAX_CHANNEL; lp++) {
 		if (dev_conf->channel[lp] != NULL) {
 			if (dev_conf->channel[lp]->dma != NULL)
@@ -1058,12 +1057,14 @@ static void __devexit pt3_pci_remove_one(struct pci_dev *pdev)
 
 #ifdef CONFIG_PM
 
-static int pt3_pci_suspend (struct pci_dev *pdev, pm_message_t state)
+static int
+pt3_pci_suspend (struct pci_dev *pdev, pm_message_t state)
 {
 	return 0;
 }
 
-static int pt3_pci_resume (struct pci_dev *pdev)
+static int
+pt3_pci_resume (struct pci_dev *pdev)
 {
 	return 0;
 }
@@ -1084,7 +1085,8 @@ static struct pci_driver pt3_driver = {
 };
 
 
-static int __init pt3_pci_init(void)
+static int
+__init pt3_pci_init(void)
 {
 	printk(KERN_INFO "%s", version);
 	pt3video_class = class_create(THIS_MODULE, DRIVERNAME);
@@ -1094,7 +1096,8 @@ static int __init pt3_pci_init(void)
 }
 
 
-static void __exit pt3_pci_cleanup(void)
+static void
+__exit pt3_pci_cleanup(void)
 {
 	pci_unregister_driver(&pt3_driver);
 	class_destroy(pt3video_class);
