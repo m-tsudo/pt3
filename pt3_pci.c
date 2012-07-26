@@ -528,6 +528,7 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			return status;
 		}
 		for (i = 0; i < 100; i++) {
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
 			status = get_id_s(channel->tuner, &tsid);
 			if (status) {
 				printk(KERN_ERR "fail get_id_s status=0x%x", status);
