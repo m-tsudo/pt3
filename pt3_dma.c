@@ -264,7 +264,6 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	size_t csize, remain;
 	__u32 lp;
 	__u32 prev;
-	__u8 *p;
 
 	mutex_lock(&dma->lock);
 
@@ -283,7 +282,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 				schedule_timeout_interruptible(msecs_to_jiffies(1));
 			}
 			if (!ready)
-				break;
+				goto last;
 			prev = dma->ts_pos - 1;
 			if (prev < 0 || dma->ts_count <= prev)
 				prev = dma->ts_count - 1;
@@ -307,8 +306,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 			page->data_pos += csize;
 			if (page->data_pos >= page->size) {
 				page->data_pos = 0;
-				p = &page->data[page->data_pos];
-				*p = NOT_SYNC_BYTE;
+				page->data[page->data_pos] = NOT_SYNC_BYTE;
 				dma->ts_pos++;
 				if (dma->ts_pos >= dma->ts_count)
 					dma->ts_pos = 0;
