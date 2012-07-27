@@ -258,7 +258,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	PT3_DMA_PAGE *page;
 	size_t csize, remain;
 	__u32 lp;
-	__s32 prev;
+	__u32 prev;
 	__u8 *p;
 
 	mutex_lock(&dma->lock);
@@ -280,10 +280,11 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 			if (!ready)
 				break;
 			prev = dma->ts_pos - 1;
-			if (prev < 0)
+			if (prev < 0 || dma->ts_count <= prev)
 				prev = dma->ts_count - 1;
 			if (dma->ts_info[prev].data[0] != NOT_SYNC_BYTE)
-				printk(KERN_INFO "dma buffer overflow.");
+				printk(KERN_INFO "dma buffer overflow. prev=%d data=0x%x",
+						prev, dma->ts_info[prev].data[0]);
 		}
 		page = &dma->ts_info[dma->ts_pos];
 		for (;;) {
