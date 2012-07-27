@@ -311,6 +311,7 @@ set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 	default :
 		status = STATUS_INVALID_PARAM_ERROR;
 	}
+	schedule_timeout_interruptible(msecs_to_jiffies(50));
 
 #if 0
 	printk(KERN_DEBUG "set_tuner_sleep isdb=%d tuner_no=%d sleep=%d status=0x%x",
@@ -540,8 +541,8 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 
 	switch (channel->type) {
 	case PT3_ISDB_S :
-		for (i = 0; i < 100; i++) {
-			schedule_timeout_interruptible(msecs_to_jiffies(2));
+		for (i = 0; i < 1000; i++) {
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
 			status = get_tmcc_s(channel->tuner, &tmcc_s);
 			if (!status)
 				break;
@@ -560,20 +561,20 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			printk(KERN_ERR "fail set_tmcc_s status=0x%x", status);
 			return status;
 		}
-		for (i = 0; i < 100; i++) {
-			schedule_timeout_interruptible(msecs_to_jiffies(2));
+		for (i = 0; i < 1000; i++) {
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
 			status = get_id_s(channel->tuner, &tsid);
 			if (status) {
 				printk(KERN_ERR "fail get_id_s status=0x%x", status);
 				return status;
 			}
 			// printk(KERN_DEBUG "tsid=0x%x", tsid);
-			if ((tsid & 0xffff) == tmcc_s.id[0])
+			if ((tsid & 0xffff) == tmcc_s.id[freq->slot])
 				return STATUS_OK;
 		}
 		break;
 	case PT3_ISDB_T :
-		for (i = 0; i < 100; i++) {
+		for (i = 0; i < 1000; i++) {
 			schedule_timeout_interruptible(msecs_to_jiffies(1));
 			status = get_tmcc_t(channel->tuner, &tmcc_t);
 			if (!status)

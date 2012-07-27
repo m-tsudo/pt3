@@ -26,8 +26,13 @@
 #define DMA_DESC_SIZE		20
 #define DMA_PAGE_SIZE		4096
 #define MAX_DESCS			204		/* 4096 / 20 */
-#define BLOCK_COUNT			32
+#if 0
+#define BLOCK_COUNT			(32 * 8)
+#define BLOCK_SIZE			(DMA_PAGE_SIZE * 47)
+#else
+#define BLOCK_COUNT			(32)
 #define BLOCK_SIZE			(DMA_PAGE_SIZE * 47 * 8)
+#endif
 #define DMA_TS_BUF_SIZE		(BLOCK_SIZE * BLOCK_COUNT)
 #define NOT_SYNC_BYTE		0x74
 
