@@ -43,8 +43,8 @@
 #define DMA_DESC_SIZE		20
 #define DMA_PAGE_SIZE		4096
 #define MAX_DESCS			204		/* 4096 / 20 */
-#if 0
-#define BLOCK_COUNT			(32 * 8)
+#if 1
+#define BLOCK_COUNT			(17)
 #define BLOCK_SIZE			(DMA_PAGE_SIZE * 47)
 #else
 #define BLOCK_COUNT			(32)
@@ -292,8 +292,8 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	remain = size;
 	for (;;) {
 		if (look_ready) {
-			ready = pt3_dma_ready(dma);
 			for (lp = 0; lp < 500; lp++) {
+				ready = pt3_dma_ready(dma);
 				if (ready)
 					break;
 				schedule_timeout_interruptible(msecs_to_jiffies(1));

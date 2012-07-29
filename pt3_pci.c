@@ -856,6 +856,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	u16			cmd ;
 	u32			class_revision ;
 	PT3_DEVICE	*dev_conf ;
+	PT3_TUNER *tuner;
 	PT3_CHANNEL *channel;
 
 	bars = pci_select_bars(pdev, IORESOURCE_MEM);
@@ -886,6 +887,8 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		}
 	}
 	// printk(KERN_INFO "Bus Mastering Enabled.\n");
+
+	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	dev_conf = kzalloc(sizeof(PT3_DEVICE), GFP_KERNEL);
 	if(!dev_conf){
@@ -926,7 +929,6 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	for (lp = 0; lp < MAX_TUNER; lp++) {
 		__u8 tc_addr, tuner_addr;
 		__u32 pin;
-		PT3_TUNER *tuner;
 
 		tuner = &dev_conf->tuner[lp];
 		tuner->tuner_no = lp;
@@ -948,6 +950,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	rc = init_all_tuner(dev_conf);
 	if (rc) {
 		printk(KERN_ERR "fail init_all_tuner. 0x%x", rc);
+		goto out_err_i2c;
 	}
 
 	for(lp = 0 ; lp < MAX_PCI_DEVICE ; lp++){
@@ -1028,6 +1031,13 @@ out_err_dma:
 		}
 	}
 out_err_i2c:
+	for (lp = 0; lp < MAX_TUNER; lp++) {
+		tuner = &dev_conf->tuner[lp];
+		free_pt3_tc(tuner->tc_s);
+		free_pt3_qm(tuner->qm);
+		free_pt3_tc(tuner->tc_t);
+		free_pt3_mx(tuner->mx);
+	}
 	free_pt3_i2c(dev_conf->i2c);
 out_err_fpga:
 	if (dev_conf->hw_addr[0])
