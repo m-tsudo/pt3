@@ -21,7 +21,7 @@ clean-files := *.o *.ko *.mod.[co] *~ version.h
 version.h:
 	revh="#define DRV_VERSION \"rev.`git rev-list HEAD | wc -l 2> /dev/null`\"\n#define DRV_RELDATE \"`git show --date=short --format=%ad | sed -n '1p' 2> /dev/null`\""; \
 	if [ -n "$$revh" ] ; then \
-		echo "$$revh" > $@; \
+		/bin/echo -e "$$revh" > $@; \
 	else \
 		printf "#define DRV_VERSION \"$(REL_VERSION)\"\n#define DRV_RELDATE \"$(REL_DATE)\"\n" > $@; \
 	fi
