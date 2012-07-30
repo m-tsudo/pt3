@@ -338,10 +338,10 @@ set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 	return status;
 }
 
-static int
+static STATUS
 init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 {
-	int status;
+	STATUS status;
 	PT3_BUS *bus;
 
 	pt3_qm_init_reg_param(tuner->qm);
@@ -383,7 +383,8 @@ init_tuner(PT3_I2C *i2c, PT3_TUNER *tuner)
 static STATUS
 tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 {
-	int status, i;
+	STATUS status;
+	int i, j;
 	PT3_TS_PINS_MODE pins;
 
 	PT3_TUNER *tuner;
@@ -401,16 +402,12 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_INFO "tc_init_t[%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(20));	
-
 	tuner = &dev_conf->tuner[1];
 	status = pt3_tc_set_powers(tuner->tc_t, NULL, 1, 0);
 	if (status) {
 		// printk(KERN_DEBUG "fail set powers.");
 		goto last;
 	}
-
-	schedule_timeout_interruptible(msecs_to_jiffies(120));	
 
 	pins.clock_data = PT3_TS_PIN_MODE_NORMAL;
 	pins.byte = PT3_TS_PIN_MODE_NORMAL;
@@ -429,10 +426,15 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 			printk(KERN_INFO "fail set ts pins mode t [%d] status=0x%x", i, status);
 	}
 
-	schedule_timeout_interruptible(msecs_to_jiffies(20));	
+	schedule_timeout_interruptible(msecs_to_jiffies(1));	
 
 	for (i = 0; i < MAX_TUNER; i++) {
-		status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
+		for (j = 0; j < 10; j++) {
+			status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
+			if (!status)
+				break;
+			schedule_timeout_interruptible(msecs_to_jiffies(1));
+		}
 		if (status) {
 			// printk(KERN_INFO "fail init_tuner %d status=0x%x", i, status);
 			goto last;
@@ -853,7 +855,6 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	int			lp ;
 	int			minor ;
 	int			bars;
-	u16			cmd ;
 	u32			class_revision ;
 	PT3_DEVICE	*dev_conf ;
 	PT3_TUNER *tuner;
@@ -868,6 +869,12 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (rc)
 		goto out_err_pci;
 
+	pci_set_master(pdev);
+	printk(KERN_INFO "Bus Mastering Enabled.\n");
+	rc = pci_save_state(pdev);
+	if (rc)
+		goto out_err_reg;
+
 	pci_read_config_dword(pdev, PCI_CLASS_REVISION, &class_revision);
 	if ((class_revision & 0xFF) != 1) {
 		printk(KERN_ERR "Revision %x is not supported\n",
@@ -875,20 +882,6 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto out_err_reg;
 	}
 	// printk(KERN_DEBUG "Revision check passed. revision=0x%x", class_revision & 0xff);
-
-	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
-	if (!(cmd & PCI_COMMAND_MASTER)) {
-		printk(KERN_INFO "Attempting to enable Bus Mastering\n");
-		pci_set_master(pdev);
-		pci_read_config_word(pdev, PCI_COMMAND, &cmd);
-		if (!(cmd & PCI_COMMAND_MASTER)) {
-			printk(KERN_ERR "Bus Mastering is not enabled\n");
-			goto out_err_reg;
-		}
-	}
-	// printk(KERN_INFO "Bus Mastering Enabled.\n");
-
-	schedule_timeout_interruptible(msecs_to_jiffies(100));	
 
 	dev_conf = kzalloc(sizeof(PT3_DEVICE), GFP_KERNEL);
 	if(!dev_conf){
@@ -1068,8 +1061,6 @@ pt3_pci_remove_one(struct pci_dev *pdev)
 			set_tuner_sleep(channel->type, channel->tuner, 1);
 		}
 		set_lnb(dev_conf, 0);
-		pt3_i2c_reset(dev_conf->i2c);
-
 		for (lp = 0; lp < MAX_TUNER; lp++) {
 			tuner = &dev_conf->tuner[lp];
 
@@ -1085,9 +1076,6 @@ pt3_pci_remove_one(struct pci_dev *pdev)
 			if (tuner->mx != NULL)
 				free_pt3_mx(tuner->mx);
 		}
-		if (dev_conf->i2c)
-			free_pt3_i2c(dev_conf->i2c);
-
 		for (lp = 0; lp < MAX_CHANNEL; lp++) {
 			if (dev_conf->channel[lp] != NULL) {
 				cdev_del(&dev_conf->cdev[lp]);
@@ -1098,6 +1086,8 @@ pt3_pci_remove_one(struct pci_dev *pdev)
 			device_destroy(pt3video_class,
 						MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)));
 		}
+		pt3_i2c_reset(dev_conf->i2c);
+		free_pt3_i2c(dev_conf->i2c);
 
 		unregister_chrdev_region(dev_conf->dev, MAX_CHANNEL);
 		if (dev_conf->hw_addr[0])

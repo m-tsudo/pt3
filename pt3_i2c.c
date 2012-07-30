@@ -77,7 +77,7 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 	if (ack != NULL)
 		*ack = a;
 	if (a)
-		printk(KERN_DEBUG "fail i2c run_code status 0x%x", data);
+		printk(KERN_DEBUG "PT3: fail i2c run_code status 0x%x", data);
 
 	return BIT_SHIFT_MASK(data, 1, 2) ? STATUS_I2C_ERROR : STATUS_OK;
 }

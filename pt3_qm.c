@@ -429,7 +429,7 @@ pt3_qm_init(PT3_QM *qm, PT3_BUS *bus)
 {
 	__u8 i_data;
 	__u32 i;
-	int status;
+	STATUS status;
 
 	// soft reset on
 	status = qm_write(qm, bus, 0x01, INIT_DUMMY_RESET);
