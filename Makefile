@@ -19,7 +19,7 @@ pt3_drv-objs := pt3_pci.o pt3_bus.o pt3_i2c.o pt3_tc.o pt3_qm.o pt3_mx.o pt3_dma
 clean-files := *.o *.ko *.mod.[co] *~ version.h
 
 version.h:
-	revh=`hg parents --template '#define DRV_VERSION "r{rev}:{node|short}"\n#define DRV_RELDATE "{date|shortdate}"\n' 2>/dev/null`; \
+	revh="#define DRV_VERSION \"rev.`git rev-list HEAD | wc -l 2> /dev/null`\"\n#define DRV_RELDATE \"`git show --date=short --format=%ad | sed -n '1p' 2> /dev/null`\""; \
 	if [ -n "$$revh" ] ; then \
 		echo "$$revh" > $@; \
 	else \
