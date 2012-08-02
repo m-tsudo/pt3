@@ -430,6 +430,8 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 
 	for (i = 0; i < MAX_TUNER; i++) {
 		for (j = 0; j < 10; j++) {
+			if (j != 0)
+				printk(KERN_INFO "retry init_tuner");
 			status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
 			if (!status)
 				break;
