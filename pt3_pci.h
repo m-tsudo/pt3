@@ -18,6 +18,9 @@
 #ifndef		__PT3_PCI_H__
 #define		__PT3_PCI_H__
 
+extern int debug;
+#define PT3_PRINTK(verbose, ...)	{if(verbose <= debug)printk(__VA_ARGS__);}
+
 #define REGS_VERSION	0x00	/*	R		Version */
 #define REGS_BUS		0x04	/*	R		Bus */
 #define REGS_SYSTEM_W	0x08	/*	W		System */

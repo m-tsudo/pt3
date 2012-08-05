@@ -80,7 +80,7 @@ pt3_tc_write(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 size)
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
+		printk(KERN_ERR "out of memory.\n");
 		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
@@ -114,7 +114,7 @@ tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
+		printk(KERN_ERR "out of memory.\n");
 		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
@@ -157,7 +157,7 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
+		printk(KERN_ERR "out of memory.\n");
 		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
@@ -188,7 +188,7 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 		free_pt3_bus(p);
 
 #if 0
-	printk(KERN_DEBUG "read_tuner_without tc_addr=0x%x tuner_addr=0x%x",
+	PT3_PRINTK(7, KERN_DEBUG "read_tuner_without tc_addr=0x%x tuner_addr=0x%x\n",
 			tc->tc_addr, tc->tuner_addr);
 #endif
 
@@ -204,7 +204,7 @@ pt3_tc_write_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, const __u8 *data, __u3
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
+		printk(KERN_ERR "out of memory.\n");
 		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
@@ -244,7 +244,7 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
+		printk(KERN_ERR "out of memory.\n");
 		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
@@ -284,7 +284,7 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 		free_pt3_bus(p);
 
 #if 0
-	printk(KERN_DEBUG "read_tuner tc_addr=0x%x tuner_addr=0x%x",
+	PT3_PRINTK(7, KERN_DEBUG "read_tuner tc_addr=0x%x tuner_addr=0x%x\n",
 			tc->tc_addr, tc->tuner_addr);
 #endif
 
@@ -300,7 +300,7 @@ pt3_tc_write_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
-		printk(KERN_ERR "out of memory.");
+		printk(KERN_ERR "out of memory.\n");
 		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
@@ -760,7 +760,7 @@ time_diff(struct timeval *st, struct timeval *et)
 	__u32 diff;
 	diff = (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
 #if 0
-	printk(KERN_DEBUG "time diff = %d\n", diff / 1000);
+	PT3_PRINTK(7, KERN_DEBUG "time diff = %d\n", diff / 1000);
 #endif
 	return diff / 1000;
 }
