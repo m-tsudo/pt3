@@ -564,28 +564,33 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			return status;
 		}
 		for (i = 0; i < 1000; i++) {
-			schedule_timeout_interruptible(msecs_to_jiffies(1));
 			status = get_id_s(channel->tuner, &tsid);
 			if (status) {
 				PT3_PRINTK(1, KERN_ERR "fail get_id_s status=0x%x\n", status);
 				return status;
 			}
 			PT3_PRINTK(7, KERN_DEBUG "tsid=0x%x\n", tsid);
-			if ((tsid & 0xffff) == tmcc_s.id[freq->slot])
+			if ((tsid & 0xffff) == tmcc_s.id[freq->slot]) {
+				// reset_error_count
+				pt3_dma_set_test_mode(channel->dma, 0, 0, 0, 1);
 				return STATUS_OK;
+			}
+			schedule_timeout_interruptible(msecs_to_jiffies(2));
 		}
 		break;
 	case PT3_ISDB_T :
 		for (i = 0; i < 1000; i++) {
-			schedule_timeout_interruptible(msecs_to_jiffies(1));
 			status = get_tmcc_t(channel->tuner, &tmcc_t);
 			if (!status)
 				break;
+			schedule_timeout_interruptible(msecs_to_jiffies(2));
 		}
 		if (status) {
 			PT3_PRINTK(1, KERN_ERR "fail get_tmcc_t status=0x%x\n", status);
 			return status;
 		}
+		// reset_error_count
+		pt3_dma_set_test_mode(channel->dma, 0, 0, 0, 1);
 		return status;
 		break;
 	}

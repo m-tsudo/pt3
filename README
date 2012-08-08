@@ -4,3 +4,15 @@ earthsoft PT3 driver
 
 ライセンス
 GPLv3です。ライセンス内容はCOPYINGをご確認ください。
+
+パラメータ
+lnb   LNBのデフォルト値を指定します
+      0: OFF (default)
+      1: 11V
+      2: 15V
+debug メッセージの表示を制御します
+      0: 出来るだけ表示しない (default)
+      1: pt1と同じ程度表示します
+      7: デバッグ用メッセージも表示します
+      ※/sys/module/pt3_drv/parameters/debugからも変更できます
+      例： echo 7 > /sys/module/pt3_drv/parameters/debug

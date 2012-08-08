@@ -281,11 +281,11 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 	remain = size;
 	for (;;) {
 		if (look_ready) {
-			for (lp = 0; lp < 500; lp++) {
+			for (lp = 0; lp < 20; lp++) {
 				ready = pt3_dma_ready(dma);
 				if (ready)
 					break;
-				schedule_timeout_interruptible(msecs_to_jiffies(1));
+				schedule_timeout_interruptible(msecs_to_jiffies(30));
 			}
 			if (!ready)
 				goto last;
@@ -293,7 +293,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 			if (prev < 0 || dma->ts_count <= prev)
 				prev = dma->ts_count - 1;
 			if (dma->ts_info[prev].data[0] != NOT_SYNC_BYTE)
-				PT3_PRINTK(1, KERN_INFO "dma buffer overflow. prev=%d data=0x%x\n",
+				PT3_PRINTK(7, KERN_INFO "dma buffer overflow. prev=%d data=0x%x\n",
 						prev, dma->ts_info[prev].data[0]);
 		}
 		page = &dma->ts_info[dma->ts_pos];
