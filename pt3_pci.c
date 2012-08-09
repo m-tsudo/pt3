@@ -414,7 +414,7 @@ tuner_power_on(PT3_DEVICE *dev_conf, PT3_BUS *bus)
 	for (i = 0; i < MAX_TUNER; i++) {
 		for (j = 0; j < 10; j++) {
 			if (j != 0)
-				printk(KERN_INFO "retry init_tuner");
+				printk(KERN_INFO "retry init_tuner\n");
 			status = init_tuner(dev_conf->i2c, &dev_conf->tuner[i]);
 			if (!status)
 				break;
@@ -463,7 +463,7 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 	bus->inst_addr = PT3_BUS_INST_ADDR0;
 
 	if (!pt3_i2c_is_clean(i2c)) {
-		printk(KERN_INFO "cleanup I2C bus.");
+		printk(KERN_INFO "cleanup I2C bus.\n");
 		status = pt3_i2c_run(i2c, bus, NULL, 0);
 		if (status)
 			goto last;
@@ -486,7 +486,7 @@ init_all_tuner(PT3_DEVICE *dev_conf)
 				goto last;
 			status = set_frequency(j, &dev_conf->tuner[i], channel, 0);
 			if (status) {
-				printk(KERN_DEBUG "fail set_frequency. status=0x%x", status);
+				printk(KERN_DEBUG "fail set_frequency. status=0x%x\n", status);
 			}
 			status = set_tuner_sleep(j, &dev_conf->tuner[i], 1);
 			if (status)
@@ -531,8 +531,8 @@ get_cn_agc(PT3_CHANNEL *channel, __u32 *cn, __u32 *curr_agc, __u32 *max_agc)
 		*curr_agc = 0;
 		*max_agc = 0;
 	}
-	PT3_PRINTK(7, KERN_INFO "cn=0x%x", *cn);
-	PT3_PRINTK(7, KERN_INFO "agc=0x%x", *curr_agc);
+	PT3_PRINTK(7, KERN_INFO "cn=0x%x\n", *cn);
+	PT3_PRINTK(7, KERN_INFO "agc=0x%x\n", *curr_agc);
 
 	return STATUS_OK;
 }
@@ -880,7 +880,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	dev_conf = kzalloc(sizeof(PT3_DEVICE), GFP_KERNEL);
 	if(!dev_conf){
-		printk(KERN_ERR "PT3:out of memory !");
+		printk(KERN_ERR "PT3:out of memory !\n");
 		goto out_err_reg;
 	}
 	PT3_PRINTK(7, KERN_DEBUG "Allocate PT3_DEVICE.\n");
@@ -898,7 +898,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (!rc) {
 		rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
 	} else {
-		printk(KERN_ERR "PT3:DMA MASK ERROR");
+		printk(KERN_ERR "PT3:DMA MASK ERROR\n");
 		goto out_err_fpga;
 	}
 
@@ -908,7 +908,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	mutex_init(&dev_conf->lock);
 	dev_conf->i2c = create_pt3_i2c(dev_conf->hw_addr);
 	if (dev_conf->i2c == NULL) {
-		printk(KERN_ERR "PT3: cannot allocate i2c.");
+		printk(KERN_ERR "PT3: cannot allocate i2c.\n");
 		goto out_err_fpga;
 	}
 	PT3_PRINTK(7, KERN_DEBUG "Allocate PT3_I2C.\n");
@@ -937,7 +937,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	rc = init_all_tuner(dev_conf);
 	if (rc) {
-		printk(KERN_ERR "fail init_all_tuner. 0x%x", rc);
+		printk(KERN_ERR "fail init_all_tuner. 0x%x\n", rc);
 		goto out_err_i2c;
 	}
 
@@ -961,18 +961,18 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		rc = cdev_add(&dev_conf->cdev[lp],
 			MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)), 1);
 		if (rc < 0) {
-			printk(KERN_ERR "fail cdev_add.");
+			printk(KERN_ERR "fail cdev_add.\n");
 		}
 
 		channel = kzalloc(sizeof(PT3_CHANNEL), GFP_KERNEL);
 		if (channel == NULL) {
-			printk(KERN_ERR "PT3:out of memory !");
+			printk(KERN_ERR "PT3:out of memory !\n");
 			goto out_err_dma;
 		}
 
 		channel->dma = create_pt3_dma(pdev, dev_conf->i2c, real_channel[lp]);
 		if (channel->dma == NULL) {
-			printk(KERN_ERR "PT3: fail create dma.");
+			printk(KERN_ERR "PT3: fail create dma.\n");
 			kfree(channel);
 			goto out_err_dma;
 		}
@@ -1092,7 +1092,7 @@ pt3_pci_remove_one(struct pci_dev *pdev)
 		pci_release_selected_regions(pdev, dev_conf->bars);
 		device[dev_conf->card_number] = NULL;
 		kfree(dev_conf);
-		printk(KERN_DEBUG "free PT3 DEVICE.");
+		printk(KERN_DEBUG "free PT3 DEVICE.\n");
 	}
 	pci_disable_device(pdev);
 	pci_set_drvdata(pdev, NULL);
