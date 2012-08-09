@@ -517,7 +517,7 @@ get_cn_agc(PT3_CHANNEL *channel, __u32 *cn, __u32 *curr_agc, __u32 *max_agc)
 		*max_agc = 127;
 		break;
 	case PT3_ISDB_T:
-		status = pt3_tc_read_cndat_t(tuner->tc_s, NULL, cn);
+		status = pt3_tc_read_cndat_t(tuner->tc_t, NULL, cn);
 		if (status)
 			return status;
 		status = pt3_tc_read_ifagc_dt(tuner->tc_t, NULL, &byte_agc);
@@ -526,7 +526,13 @@ get_cn_agc(PT3_CHANNEL *channel, __u32 *cn, __u32 *curr_agc, __u32 *max_agc)
 		*curr_agc = byte_agc;
 		*max_agc = 255;
 		break;
+	default:
+		*cn = 0;
+		*curr_agc = 0;
+		*max_agc = 0;
 	}
+	PT3_PRINTK(7, KERN_INFO "cn=0x%x", *cn);
+	PT3_PRINTK(7, KERN_INFO "agc=0x%x", *curr_agc);
 
 	return STATUS_OK;
 }
