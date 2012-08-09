@@ -1131,7 +1131,7 @@ static struct pci_driver pt3_driver = {
 static int __init
 pt3_pci_init(void)
 {
-	printk(KERN_INFO "%s", version);
+	printk(KERN_INFO "%s\n", version);
 	pt3video_class = class_create(THIS_MODULE, DRIVERNAME);
 	if (IS_ERR(pt3video_class))
 		return PTR_ERR(pt3video_class);
