@@ -215,7 +215,7 @@ create_pt3_bus(void)
 {
 	PT3_BUS *bus;
 
-	bus = vzalloc(sizeof(PT3_BUS));
+	bus = pt3_vzalloc(sizeof(PT3_BUS));
 	if (bus == NULL)
 		goto fail;
 

@@ -161,7 +161,7 @@ create_pt3_i2c(__u8 __iomem *bar[])
 {
 	PT3_I2C *i2c;
 
-	i2c = vzalloc(sizeof(PT3_I2C));
+	i2c = pt3_vzalloc(sizeof(PT3_I2C));
 	if (i2c == NULL)
 		goto fail;
 

@@ -552,7 +552,7 @@ create_pt3_qm(PT3_I2C *i2c, PT3_TC *tc)
 
 	qm = NULL;
 
-	qm = vzalloc(sizeof(PT3_QM));
+	qm = pt3_vzalloc(sizeof(PT3_QM));
 	if (qm == NULL)
 		goto fail;
 

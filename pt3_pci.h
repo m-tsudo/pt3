@@ -18,6 +18,12 @@
 #ifndef		__PT3_PCI_H__
 #define		__PT3_PCI_H__
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
+void * pt3_vzalloc(unsigned long size);
+#else
+#define pt3_vzalloc vzalloc
+#endif
+
 extern int debug;
 #define PT3_PRINTK(verbose, ...)	{if(verbose <= debug)printk(__VA_ARGS__);}
 
