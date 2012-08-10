@@ -732,7 +732,7 @@ create_pt3_tc(PT3_I2C *i2c, __u8 tc_addr, __u8 tuner_addr)
 
 	tc = NULL;
 
-	tc = vzalloc(sizeof(PT3_TC));
+	tc = pt3_vzalloc(sizeof(PT3_TC));
 	if (tc == NULL)
 		goto fail;
 

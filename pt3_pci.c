@@ -62,6 +62,18 @@ typedef struct pm_message {
 #include	"pt3_mx.h"
 #include	"pt3_dma.h"
 
+#ifndef pt3_vzalloc
+void *
+pt3_vzalloc(unsigned long size)
+{
+	void *p = vmalloc(size);
+	printk(KERN_DEBUG "PT3:vzalloc size=%lu", size);
+	if (p)
+		memset(p, 0, size);
+	return p;
+}
+#endif
+
 char pt3_driver_name[] = DRV_NAME;
 
 /* These identify the driver base version and may not be removed. */

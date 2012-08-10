@@ -434,7 +434,7 @@ create_pt3_mx(PT3_I2C *i2c, PT3_TC *tc)
 
 	mx = NULL;
 
-	mx = vzalloc(sizeof(PT3_MX));
+	mx = pt3_vzalloc(sizeof(PT3_MX));
 	if (mx == NULL)
 		goto fail;
 
