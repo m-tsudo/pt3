@@ -588,6 +588,8 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			}
 			PT3_PRINTK(7, KERN_DEBUG "tsid=0x%x\n", tsid);
 			if ((tsid & 0xffff) == tmcc_s.id[freq->slot]) {
+				// wait for fill buffer
+				schedule_timeout_interruptible(msecs_to_jiffies(100));
 				// reset_error_count
 				pt3_dma_set_test_mode(channel->dma, 0, 0, 0, 1);
 				return STATUS_OK;
@@ -606,6 +608,8 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 			PT3_PRINTK(1, KERN_ERR "fail get_tmcc_t status=0x%x\n", status);
 			return status;
 		}
+		// wait for fill buffer
+		schedule_timeout_interruptible(msecs_to_jiffies(200));
 		// reset_error_count
 		pt3_dma_set_test_mode(channel->dma, 0, 0, 0, 1);
 		return status;
