@@ -93,11 +93,11 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 	__u8 *prev, *curr;
 
 	if (dma == NULL) {
-		PT3_PRINTK(1, KERN_ERR "dma build page descriptor needs DMA\n");
+		PT3_PRINTK(1, KERN_ERR "PT3: PT3: dma build page descriptor needs DMA\n");
 		return;
 	}
 #if 0
-	PT3_PRINTK(7, KERN_DEBUG "build page descriptor ts_count=%d ts_size=0x%x desc_count=%d desc_size=0x%x\n",
+	PT3_PRINTK(7, KERN_DEBUG "PT3: PT3: build page descriptor ts_count=%d ts_size=0x%x desc_count=%d desc_size=0x%x\n",
 			dma->ts_count, dma->ts_info[0].size, dma->desc_count, dma->desc_info[0].size);
 #endif
 
@@ -105,7 +105,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 	desc_info = &dma->desc_info[desc_info_pos];
 #if 1
 	if (desc_info == NULL) {
-		printk(KERN_ERR "dma maybe failed allocate desc_info %d\n",
+		PT3_PRINTK(0, KERN_ERR "PT3: dma maybe failed allocate desc_info %d\n",
 				desc_info_pos);
 		return;
 	}
@@ -117,7 +117,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 	prev = NULL;
 #if 1
 	if (curr == NULL) {
-		printk(KERN_ERR "dma maybe failed allocate desc_info->data %d\n",
+		PT3_PRINTK(0, KERN_ERR "PT3: dma maybe failed allocate desc_info->data %d\n",
 				desc_info_pos);
 		return;
 	}
@@ -127,7 +127,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 	for (i = 0; i < dma->ts_count; i++) {
 #if 1
 		if (dma->ts_count <= ts_info_pos) {
-			printk(KERN_ERR "ts_info overflow max=%d curr=%d\n",
+			PT3_PRINTK(0, KERN_ERR "PT3: ts_info overflow max=%d curr=%d\n",
 					dma->ts_count, ts_info_pos);
 			return;
 		}
@@ -135,7 +135,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 		ts_info = &dma->ts_info[ts_info_pos];
 #if 1
 		if (ts_info == NULL) {
-			printk(KERN_ERR "dma maybe failed allocate ts_info %d\n",
+			PT3_PRINTK(0, KERN_ERR "PT3: dma maybe failed allocate ts_info %d\n",
 					ts_info_pos);
 			return;
 		}
@@ -143,10 +143,10 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 		ts_addr = ts_info->addr;
 		ts_size = ts_info->size;
 		ts_info_pos++;
-		// PT3_PRINTK(7, KERN_DEBUG "ts_info addr=0x%llx size=0x%x\n", ts_addr, ts_size);
+		// PT3_PRINTK(7, KERN_DEBUG "PT3: ts_info addr=0x%llx size=0x%x\n", ts_addr, ts_size);
 #if 1
 		if (ts_info == NULL) {
-			printk(KERN_ERR "dma maybe failed allocate ts_info %d\n",
+			PT3_PRINTK(0, KERN_ERR "PT3: dma maybe failed allocate ts_info %d\n",
 					ts_info_pos);
 			return;
 		}
@@ -155,7 +155,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 			if (desc_remain < DMA_DESC_SIZE) {
 #if 1
 				if (dma->desc_count <= desc_info_pos) {
-					printk(KERN_ERR "desc_info overflow max=%d curr=%d\n",
+					PT3_PRINTK(0, KERN_ERR "PT3: desc_info overflow max=%d curr=%d\n",
 							dma->desc_count, desc_info_pos);
 					return;
 				}
@@ -165,12 +165,12 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 				curr = &desc_info->data[desc_info->data_pos];
 #if 1
 				if (curr == NULL) {
-					printk(KERN_ERR "dma maybe failed allocate desc_info->data %d\n",
+					PT3_PRINTK(0, KERN_ERR "PT3: dma maybe failed allocate desc_info->data %d\n",
 							desc_info_pos);
 					return;
 				}
 				/*
-				PT3_PRINTK(7, KERN_DEBUG "desc_info_pos=%d ts_addr=0x%llx remain=%d\n",
+				PT3_PRINTK(7, KERN_DEBUG "PT3: desc_info_pos=%d ts_addr=0x%llx remain=%d\n",
 						desc_info_pos, ts_addr, desc_remain);
 				*/
 #endif
@@ -183,7 +183,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 			}
 			dma_write_descriptor(ts_addr, DMA_PAGE_SIZE, 0, curr);
 #if 0
-			PT3_PRINTK(7, KERN_DEBUG "dma write desc ts_addr=0x%llx desc_info_pos=%d\n",
+			PT3_PRINTK(7, KERN_DEBUG "PT3: dma write desc ts_addr=0x%llx desc_info_pos=%d\n",
 						ts_addr, desc_info_pos);
 #endif
 			ts_addr += DMA_PAGE_SIZE;
@@ -191,7 +191,7 @@ pt3_dma_build_page_descriptor(PT3_DMA *dma, int loop)
 			prev = curr;
 			desc_info->data_pos += DMA_DESC_SIZE;
 			if (desc_info->size <= desc_info->data_pos) {
-				printk(KERN_ERR "dma desc_info data overflow.\n");
+				PT3_PRINTK(0, KERN_ERR "PT3: dma desc_info data overflow.\n");
 				return;
 			}
 			curr = &desc_info->data[desc_info->data_pos];
@@ -223,7 +223,7 @@ pt3_dma_set_test_mode(PT3_DMA *dma, int test, __u16 init, int not, int reset)
 	base = get_base_addr(dma);
 	data = (reset ? 1: 0) << 18 | (not ? 1 : 0) << 17 | (test ? 1 : 0) << 16 | init;
 
-	PT3_PRINTK(7, KERN_DEBUG "set_test_mode base=%p data=0x%04d\n",
+	PT3_PRINTK(7, KERN_DEBUG "PT3: set_test_mode base=%p data=0x%04d\n",
 			base, data);
 
 	writel(data, base + 0x0c);
@@ -240,19 +240,19 @@ pt3_dma_set_enabled(PT3_DMA *dma, int enabled)
 	start_addr = dma->desc_info->addr;
 
 	if (enabled) {
-		PT3_PRINTK(7, KERN_DEBUG "enable dma real_index=%d start_addr=%llx\n",
+		PT3_PRINTK(7, KERN_DEBUG "PT3: enable dma real_index=%d start_addr=%llx\n",
 				dma->real_index, start_addr);
 		pt3_dma_reset(dma);
 		writel( 1 << 1, base + 0x08);
 		writel(BIT_SHIFT_MASK(start_addr,  0, 32), base + 0x0);
 		writel(BIT_SHIFT_MASK(start_addr, 32, 32), base + 0x4);
-		PT3_PRINTK(7, KERN_DEBUG "set descriptor address low %llx\n",
+		PT3_PRINTK(7, KERN_DEBUG "PT3: set descriptor address low %llx\n",
 				BIT_SHIFT_MASK(start_addr,  0, 32));
-		PT3_PRINTK(7, KERN_DEBUG "set descriptor address heigh %llx\n",
+		PT3_PRINTK(7, KERN_DEBUG "PT3: set descriptor address heigh %llx\n",
 				BIT_SHIFT_MASK(start_addr, 32, 32));
 		writel( 1 << 0, base + 0x08);
 	} else {
-		PT3_PRINTK(7, KERN_DEBUG "disable dma real_index=%d\n", dma->real_index);
+		PT3_PRINTK(7, KERN_DEBUG "PT3: disable dma real_index=%d\n", dma->real_index);
 		writel(1 << 1, base + 0x08);
 		while (1) {
 			data = readl(base + 0x10);
@@ -275,7 +275,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 
 	mutex_lock(&dma->lock);
 
-	PT3_PRINTK(7, KERN_DEBUG "dma_copy ts_pos=0x%x data_pos=0x%x\n",
+	PT3_PRINTK(7, KERN_DEBUG "PT3: dma_copy ts_pos=0x%x data_pos=0x%x\n",
 				dma->ts_pos, dma->ts_info[dma->ts_pos].data_pos);
 
 	remain = size;
@@ -293,7 +293,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 			if (prev < 0 || dma->ts_count <= prev)
 				prev = dma->ts_count - 1;
 			if (dma->ts_info[prev].data[0] != NOT_SYNC_BYTE)
-				PT3_PRINTK(7, KERN_INFO "dma buffer overflow. prev=%d data=0x%x\n",
+				PT3_PRINTK(7, KERN_INFO "PT3: dma buffer overflow. prev=%d data=0x%x\n",
 						prev, dma->ts_info[prev].data[0]);
 		}
 		page = &dma->ts_info[dma->ts_pos];
@@ -348,7 +348,7 @@ pt3_dma_ready(PT3_DMA *dma)
 	if (*p == NOT_SYNC_BYTE)
 		return 0;
 
-	printk(KERN_DEBUG "invalid sync byte value=0x%02x ts_pos=%d data_pos=%d curr=0x%02x\n",
+	PT3_PRINTK(0, KERN_DEBUG "PT3: invalid sync byte value=0x%02x ts_pos=%d data_pos=%d curr=0x%02x\n",
 			*p, next, page->data_pos, dma->ts_info[dma->ts_pos].data[0]);
 
 	return 0;
@@ -405,7 +405,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 
 	dma = kzalloc(sizeof(PT3_DMA), GFP_KERNEL);
 	if (dma == NULL) {
-		printk(KERN_ERR "fail allocate PT3_DMA\n");
+		PT3_PRINTK(0, KERN_ERR "PT3: fail allocate PT3_DMA\n");
 		goto fail;
 	}
 
@@ -417,7 +417,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 	dma->ts_count = BLOCK_COUNT;
 	dma->ts_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->ts_count, GFP_KERNEL);
 	if (dma->ts_info == NULL) {
-		printk(KERN_ERR "fail allocate PT3_DMA_PAGE\n");
+		PT3_PRINTK(0, KERN_ERR "PT3: fail allocate PT3_DMA_PAGE\n");
 		goto fail;
 	}
 	for (i = 0; i < dma->ts_count; i++) {
@@ -426,16 +426,16 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page->data_pos = 0;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
-			printk(KERN_ERR "fail allocate consistent. %d\n", i);
+			PT3_PRINTK(0, KERN_ERR "PT3: fail allocate consistent. %d\n", i);
 			goto fail;
 		}
 	}
-	PT3_PRINTK(7, KERN_DEBUG "Allocate TS buffer.\n");
+	PT3_PRINTK(7, KERN_DEBUG "PT3: Allocate TS buffer.\n");
 
 	dma->desc_count = (DMA_TS_BUF_SIZE / (DMA_PAGE_SIZE) + MAX_DESCS - 1) / MAX_DESCS;
 	dma->desc_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->desc_count, GFP_KERNEL);
 	if (dma->desc_info == NULL) {
-		printk(KERN_ERR "fail allocate PT3_DMA_PAGE\n");
+		PT3_PRINTK(0, KERN_ERR "PT3: fail allocate PT3_DMA_PAGE\n");
 		goto fail;
 	}
 	for (i = 0; i < dma->desc_count; i++) {
@@ -444,13 +444,13 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page->data_pos = 0;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
-			printk(KERN_ERR "fail allocate consistent. %d\n", i);
+			PT3_PRINTK(0, KERN_ERR "PT3: fail allocate consistent. %d\n", i);
 			goto fail;
 		}
 	}
-	PT3_PRINTK(7, KERN_DEBUG "Allocate Descriptor buffer.\n");
+	PT3_PRINTK(7, KERN_DEBUG "PT3: Allocate Descriptor buffer.\n");
 	pt3_dma_build_page_descriptor(dma, 1);
-	PT3_PRINTK(7, KERN_DEBUG "set page descriptor.\n");
+	PT3_PRINTK(7, KERN_DEBUG "PT3: set page descriptor.\n");
 #if 0
 	dma_check_page_descriptor(dma);
 #endif

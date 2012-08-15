@@ -72,7 +72,7 @@ add_instruction(PT3_BUS *bus, __u32 instruction)
 		bus->insts[bus->inst_pos] = bus->tmp_inst;
 		bus->inst_pos++;
 		if (bus->inst_pos >= sizeof(bus->insts)) {
-			printk(KERN_ERR "PT3:bus instructions is over flow\n");
+			PT3_PRINTK(0, KERN_ERR "PT3: bus instructions is over flow\n");
 			bus->inst_pos = 0;
 		}
 	}
@@ -85,11 +85,11 @@ datan(PT3_BUS *bus, __u32 index, __u32 n)
 	__u32 i, data;
 
 	if (bus->buf == NULL) {
-		printk(KERN_ERR "PT3: buf is not ready.\n");
+		PT3_PRINTK(0, KERN_ERR "PT3: buf is not ready.\n");
 		return 0;
 	}
 	if (bus->buf_size < index + n) {
-		printk(KERN_ERR "PT3: buf does not  have enough size. buf_size=%d\n",
+		PT3_PRINTK(0, KERN_ERR "PT3: buf does not  have enough size. buf_size=%d\n",
 				bus->buf_size);
 		return 0;
 	}
@@ -160,7 +160,7 @@ pt3_bus_read(PT3_BUS *bus, __u8 *data, __u32 size)
 		bus->buf_pos = 0;
 		bus->buf_size = size;
 	} else
-		printk(KERN_ERR "PT3: bus read buff is already exists.\n");
+		PT3_PRINTK(0, KERN_ERR "PT3: bus read buff is already exists.\n");
 
 	return index;
 }
@@ -170,14 +170,14 @@ pt3_bus_push_read_data(PT3_BUS *bus, __u8 data)
 {
 	if (bus->buf != NULL) {
 		if (bus->buf_pos >= bus->buf_size) {
-			printk(KERN_ERR "PT3: buffer over run. pos=%d\n", bus->buf_pos);
+			PT3_PRINTK(0, KERN_ERR "PT3: buffer over run. pos=%d\n", bus->buf_pos);
 			bus->buf_pos = 0;
 		}
 		bus->buf[bus->buf_pos] = data;
 		bus->buf_pos++;
 	}
 #if 0
-	PT3_PRINTK(7, KERN_DEBUG "bus read data=0x%02x\n", data);
+	PT3_PRINTK(7, KERN_DEBUG "PT3: bus read data=0x%02x\n", data);
 #endif
 }
 
