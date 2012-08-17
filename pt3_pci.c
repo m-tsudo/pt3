@@ -679,9 +679,9 @@ pt3_release(struct inode *inode, struct file *file)
 	pt3_dma_set_enabled(channel->dma, 0);
 	mutex_unlock(&channel->ptr->lock);
 
-	set_lnb(channel->ptr, 0);
 	if (debug > 0)
-		PT3_PRINTK(0, KERN_INFO "PT3: (%d:%d) error count %d\n", imajor(inode), iminor(inode),
+		PT3_PRINTK(0, KERN_INFO "PT3: (%d:%d) error count %d\n",
+				imajor(inode), iminor(inode),
 				pt3_dma_get_ts_error_packet_count(channel->dma));
 	set_tuner_sleep(channel->type, channel->tuner, 1);
 	schedule_timeout_interruptible(msecs_to_jiffies(50));
@@ -940,6 +940,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 	PT3_PRINTK(7, KERN_DEBUG "PT3: Allocate PT3_I2C.\n");
 
+	set_lnb(dev_conf, 0);
 	// Tuner
 	for (lp = 0; lp < MAX_TUNER; lp++) {
 		__u8 tc_addr, tuner_addr;
