@@ -280,7 +280,7 @@ pt3_dma_copy(PT3_DMA *dma, char __user *buf, size_t size, loff_t *ppos, int look
 
 	remain = size;
 	for (;;) {
-		if (look_ready) {
+		if (likely(look_ready)) {
 			for (lp = 0; lp < 20; lp++) {
 				ready = pt3_dma_ready(dma);
 				if (ready)

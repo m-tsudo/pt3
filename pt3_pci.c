@@ -101,6 +101,9 @@ static struct pci_device_id pt3_pci_tbl[] = {
 };
 MODULE_DEVICE_TABLE(pci, pt3_pci_tbl);
 #define		DEV_NAME	"pt3video"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
+static	DEFINE_MUTEX(pt3_biglock);
+#endif
 
 #define		MAX_PCI_DEVICE		128		// 最大64枚
 
@@ -146,7 +149,6 @@ struct _PT3_CHANNEL {
 	PT3_TUNER		*tuner;
 	int				type ;
 	struct mutex	lock ;
-	struct mutex	biglock ;
 	PT3_DEVICE		*ptr ;
 	PT3_I2C			*i2c;
 	PT3_DMA			*dma;
@@ -813,11 +815,21 @@ static long
 pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
 	long ret;
-	PT3_CHANNEL *channel = file->private_data;
 
-	mutex_lock(&channel->biglock);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
+	if(mutex_lock_interruptible(&pt3_biglock))
+		return -EINTR ;
+#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
+	lock_kernel();
+#endif
+
 	ret = pt3_do_ioctl(file, cmd, arg0);
-	mutex_unlock(&channel->biglock);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
+	mutex_unlock(&pt3_biglock);
+#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
+	unlock_kernel();
+#endif
 
 	return ret;
 }
@@ -993,7 +1005,6 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		}
 
 		mutex_init(&channel->lock);
-		mutex_init(&channel->biglock);
 		channel->minor = MINOR(dev_conf->dev) + lp;
 		channel->tuner = &dev_conf->tuner[real_channel[lp] & 1];
 		channel->type = channel_type[lp];
