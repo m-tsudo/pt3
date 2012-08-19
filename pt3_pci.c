@@ -36,6 +36,9 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 #include <linux/freezer.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+#include <linux/smp_lock.h>
+#endif
 #else
 #define set_freezable()
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
