@@ -36,7 +36,7 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 #include <linux/freezer.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
 #include <linux/smp_lock.h>
 #endif
 #else
