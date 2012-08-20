@@ -36,6 +36,14 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
 #include <linux/freezer.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+#include <linux/sched.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
+#include <linux/smp_lock.h>
+#endif
+#endif
+#endif
 #else
 #define set_freezable()
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
@@ -319,11 +327,13 @@ set_tuner_sleep(int isdb, PT3_TUNER *tuner, int sleep)
 
 	switch (isdb) {
 	case PT3_ISDB_S :
-		PT3_PRINTK(1, "PT3: ISDB_S %s\n", (sleep) ? "Sleep" : "Wakeup");
+		PT3_PRINTK(1, "PT3: TUNER %p ISDB_S %s\n", tuner,
+					(sleep) ? "Sleep" : "Wakeup");
 		status = pt3_qm_set_sleep(tuner->qm, sleep);
 		break;
 	case PT3_ISDB_T :
-		PT3_PRINTK(1, "PT3: ISDB_T %s\n", (sleep) ? "Sleep" : "Wakeup");
+		PT3_PRINTK(1, "PT3: TUNER %p ISDB_T %s\n", tuner,
+					(sleep) ? "Sleep" : "Wakeup");
 		status = pt3_mx_set_sleep(tuner->mx, sleep);
 		break;
 	default :
