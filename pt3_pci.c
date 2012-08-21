@@ -34,23 +34,21 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
-#include <linux/freezer.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
-#include <linux/sched.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
-#include <linux/smp_lock.h>
-#endif
-#endif
-#endif
-#else
-#define set_freezable()
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
 typedef struct pm_message {
         int event;
 } pm_message_t;
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
+#include <linux/freezer.h>
+#else
+#define set_freezable()
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+#include <linux/sched.h>
+#endif
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
+#include <linux/smp_lock.h>
 #endif
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
