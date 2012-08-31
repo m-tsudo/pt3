@@ -63,12 +63,12 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 
 	wait(i2c, &data);
 
-	if (start_addr >= (1 << 13))
-		PT3_PRINTK(0, KERN_DEBUG "PT3: start address is over.\n");
+	if (unlikely(start_addr >= (1 << 13)))
+		PT3_PRINTK(0, KERN_DEBUG, "start address is over.\n");
 	
 	writel(1 << 16 | start_addr, i2c->bar[0] + REGS_I2C_W);
 #if 0
-	PT3_PRINTK(7, KERN_DEBUG "PT3: run i2c start_addr=0x%x\n", start_addr);
+	PT3_PRINTK(7, KERN_DEBUG, "run i2c start_addr=0x%x\n", start_addr);
 #endif
 
 	wait(i2c, &data);
@@ -77,7 +77,7 @@ run_code(PT3_I2C *i2c, __u32 start_addr, __u32 *ack)
 	if (ack != NULL)
 		*ack = a;
 	if (a)
-		PT3_PRINTK(0, KERN_DEBUG "PT3: fail i2c run_code status 0x%x\n", data);
+		PT3_PRINTK(0, KERN_DEBUG, "fail i2c run_code status 0x%x\n", data);
 
 	return BIT_SHIFT_MASK(data, 1, 2) ? STATUS_I2C_ERROR : STATUS_OK;
 }
@@ -93,7 +93,7 @@ pt3_i2c_copy(PT3_I2C *i2c, PT3_BUS *bus)
 	dst = i2c->bar[1] + DATA_OFFSET + (bus->inst_addr / 2);
 
 #if 0
-	PT3_PRINTK(7, KERN_DEBUG "PT3 : i2c_copy. base=%p dst=%p src=%p size=%d\n",
+	PT3_PRINTK(7, KERN_DEBUG, "PT3 : i2c_copy. base=%p dst=%p src=%p size=%d\n",
 						i2c->bar[1], dst, src, bus->inst_pos);
 #endif
 
@@ -128,7 +128,7 @@ pt3_i2c_run(PT3_I2C *i2c, PT3_BUS *bus, __u32 *ack, int copy)
 #if 0
 	if (rsize > 0) {
 		for (i = 1; i < 10; i++) {
-			PT3_PRINTK(7, KERN_DEBUG "PT3: bus_read_data + %d = 0x%x inst = 0x%x\n",
+			PT3_PRINTK(7, KERN_DEBUG, "bus_read_data + %d = 0x%x inst = 0x%x\n",
 					i, readb(i2c->bar[1] + DATA_OFFSET + i),
 					bus->insts[i]);
 		}

@@ -25,7 +25,7 @@ void * pt3_vzalloc(unsigned long size);
 #endif
 
 extern int debug;
-#define PT3_PRINTK(verbose, ...)	{if(verbose <= debug)printk(__VA_ARGS__);}
+#define PT3_PRINTK(verbose, level, fmt, args...)	{if(verbose <= debug)printk(level "PT3: " fmt, ##args);}
 
 #define REGS_VERSION	0x00	/*	R		Version */
 #define REGS_BUS		0x04	/*	R		Bus */

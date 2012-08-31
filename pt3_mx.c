@@ -187,7 +187,7 @@ mx_tuner_rftune(PT3_MX *mx, PT3_BUS *bus, __u32 freq)
 	mx_rftune(data, &size, freq);
 
 	if (size != 20) {
-		PT3_PRINTK(0, KERN_ERR "PT3: fail mx_rftune size = %d\n", size);
+		PT3_PRINTK(0, KERN_ERR, "fail mx_rftune size = %d\n", size);
 		return;
 	}
 
@@ -415,7 +415,7 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
 	}
 #if 0
-	PT3_PRINTK(7, KERN_DEBUG "PT3: mx_get_locked1 %d locked2 %d\n", locked1, locked2);
+	PT3_PRINTK(7, KERN_DEBUG, "mx_get_locked1 %d locked2 %d\n", locked1, locked2);
 #endif
 	if (!(locked1 && locked2))
 		return STATUS_PLL_LOCK_TIMEOUT_ERROR;
