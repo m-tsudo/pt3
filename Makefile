@@ -3,14 +3,15 @@ VERBOSITY = 0
 REL_VERSION = "0.0.1"
 REL_DATE = "2012-07-07"
 EXTRA_CFLAGS += -Wformat=2
+KVER ?= `uname -r`
 
 all: ${TARGET}
 
 pt3_drv.ko: pt3_pci.c pt3_bus.c pt3_i2c.c pt3_tc.c pt3_qm.c pt3_mx.c pt3_dma.c version.h
-	make -C /lib/modules/`uname -r`/build M=`pwd` V=$(VERBOSITY) modules
+	make -C /lib/modules/$(KVER)/build M=`pwd` V=$(VERBOSITY) modules
 
 clean:
-	make -C /lib/modules/`uname -r`/build M=`pwd` V=$(VERBOSITY) clean
+	make -C /lib/modules/$(KVER)/build M=`pwd` V=$(VERBOSITY) clean
 
 obj-m := pt3_drv.o
 
@@ -27,7 +28,7 @@ version.h:
 	fi
 
 install: $(TARGET)
-	install -m 644 $(TARGET) /lib/modules/`uname -r`/kernel/drivers/video
+	install -m 644 $(TARGET) /lib/modules/$(KVER)/kernel/drivers/video
 	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
 		install -m 644 etc/99-pt3.rules /etc/udev/rules.d ; \
 	fi
