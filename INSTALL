@@ -1,0 +1,11 @@
+# ソースコードのコピー
+sudo cp -r `pwd` /usr/src/pt3_drv-0.0.1
+
+# ソースパッケージの追加
+sudo dkms add -m pt3_drv -v 0.0.1
+
+# モジュールのビルド
+sudo dkms build -m pt3_drv -v 0.0.1
+
+# モジュールのインストール
+sudo dkms install -m pt3_drv -v 0.0.1
