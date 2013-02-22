@@ -5,13 +5,16 @@ REL_DATE = "2012-07-07"
 EXTRA_CFLAGS += -Wformat=2
 KVER ?= `uname -r`
 
+KBUILD = /lib/modules/$(KVER)/build
+INSTALL_DIR = /lib/modules/$(KVER)/kernel/drivers/video
+
 all: ${TARGET}
 
 pt3_drv.ko: pt3_pci.c pt3_bus.c pt3_i2c.c pt3_tc.c pt3_qm.c pt3_mx.c pt3_dma.c version.h
-	make -C /lib/modules/$(KVER)/build M=`pwd` V=$(VERBOSITY) modules
+	make -C $(KBUILD) M=`pwd` V=$(VERBOSITY) modules
 
 clean:
-	make -C /lib/modules/$(KVER)/build M=`pwd` V=$(VERBOSITY) clean
+	make -C $(KBUILD) M=`pwd` V=$(VERBOSITY) clean
 
 obj-m := pt3_drv.o
 
@@ -27,8 +30,19 @@ version.h:
 		printf "#define DRV_VERSION \"$(REL_VERSION)\"\n#define DRV_RELDATE \"$(REL_DATE)\"\n" > $@; \
 	fi
 
-install: $(TARGET)
-	install -m 644 $(TARGET) /lib/modules/$(KVER)/kernel/drivers/video
+uninstall:
+	rm -f $(INSTALL_DIR)/$(TARGET)*
+
+install: $(TARGET) uninstall
+	install -m 644 $(TARGET) $(INSTALL_DIR)
+	source $(KBUILD)/.config ; \
+	if [ $$CONFIG_DECOMPRESS_XZ == "y" ] ; then \
+		xz   -9e $(INSTALL_DIR)/$(TARGET); \
+	elif [ $$CONFIG_DECOMPRESS_BZIP2 == "y" ] ; then \
+		bzip2 -9 $(INSTALL_DIR)/$(TARGET); \
+	elif [ $$CONFIG_DECOMPRESS_GZIP == "y" ] ; then \
+		gzip  -9 $(INSTALL_DIR)/$(TARGET); \
+	fi
 	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
 		install -m 644 etc/99-pt3.rules /etc/udev/rules.d ; \
 	fi

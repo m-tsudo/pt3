@@ -50,6 +50,12 @@ typedef struct pm_message {
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
 #include <linux/smp_lock.h>
 #endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
+#define __devinitdata
+#define __devinit
+#define __devexit
+#define __devexit_p
+#endif
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
 
