@@ -35,6 +35,12 @@ uninstall:
 
 install: $(TARGET) uninstall
 	install -m 644 $(TARGET) $(INSTALL_DIR)
+	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
+		install -m 644 etc/99-pt3.rules /etc/udev/rules.d ; \
+	fi
+	depmod -a
+
+install_compress: install
 	. $(KBUILD)/.config ; \
 	if [ $$CONFIG_DECOMPRESS_XZ = "y" ] ; then \
 		xz   -9e $(INSTALL_DIR)/$(TARGET); \
@@ -42,8 +48,5 @@ install: $(TARGET) uninstall
 		bzip2 -9 $(INSTALL_DIR)/$(TARGET); \
 	elif [ $$CONFIG_DECOMPRESS_GZIP = "y" ] ; then \
 		gzip  -9 $(INSTALL_DIR)/$(TARGET); \
-	fi
-	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
-		install -m 644 etc/99-pt3.rules /etc/udev/rules.d ; \
 	fi
 	depmod -a
