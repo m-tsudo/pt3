@@ -35,12 +35,12 @@ uninstall:
 
 install: $(TARGET) uninstall
 	install -m 644 $(TARGET) $(INSTALL_DIR)
-	source $(KBUILD)/.config ; \
-	if [ $$CONFIG_DECOMPRESS_XZ == "y" ] ; then \
+	. $(KBUILD)/.config ; \
+	if [ $$CONFIG_DECOMPRESS_XZ = "y" ] ; then \
 		xz   -9e $(INSTALL_DIR)/$(TARGET); \
-	elif [ $$CONFIG_DECOMPRESS_BZIP2 == "y" ] ; then \
+	elif [ $$CONFIG_DECOMPRESS_BZIP2 = "y" ] ; then \
 		bzip2 -9 $(INSTALL_DIR)/$(TARGET); \
-	elif [ $$CONFIG_DECOMPRESS_GZIP == "y" ] ; then \
+	elif [ $$CONFIG_DECOMPRESS_GZIP = "y" ] ; then \
 		gzip  -9 $(INSTALL_DIR)/$(TARGET); \
 	fi
 	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
