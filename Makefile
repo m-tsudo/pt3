@@ -34,6 +34,7 @@ uninstall:
 	rm -f $(INSTALL_DIR)/$(TARGET)*
 
 install: $(TARGET) uninstall
+	install -d $(INSTALL_DIR)
 	install -m 644 $(TARGET) $(INSTALL_DIR)
 	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
 		install -m 644 etc/99-pt3.rules /etc/udev/rules.d ; \
