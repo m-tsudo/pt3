@@ -1,1 +1,1 @@
-KERNEL=="pt3video*"		GROUP="video", MODE="0666"
+KERNEL=="pt3*"		GROUP="video", MODE="0666"

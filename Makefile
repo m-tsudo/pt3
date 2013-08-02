@@ -1,7 +1,5 @@
 TARGET := pt3_drv.ko
 VERBOSITY = 0
-REL_VERSION = "0.0.1"
-REL_DATE = "2012-07-07"
 EXTRA_CFLAGS += -Wformat=2
 KVER ?= `uname -r`
 
@@ -23,22 +21,25 @@ pt3_drv-objs := pt3_pci.o pt3_bus.o pt3_i2c.o pt3_tc.o pt3_qm.o pt3_mx.o pt3_dma
 clean-files := *.o *.ko *.mod.[co] *~ version.h
 
 version.h:
-	revh="#define DRV_VERSION \"rev.`git rev-list HEAD | wc -l 2> /dev/null`\"\n#define DRV_RELDATE \"`git show --date=short --format=%ad | sed -n '1p' 2> /dev/null`\""; \
-	if [ -n "$$revh" ] ; then \
-		/bin/echo -e "$$revh" > $@; \
+	. ./dkms.conf ; \
+	GREV=`git rev-list HEAD | wc -l 2> /dev/null`; \
+	if [ $$GREV != 0 ] ; then \
+		printf "#define DRV_VERSION \"$${PACKAGE_VERSION}rev$$GREV\"\n#define DRV_RELDATE \"`git show --date=short --format=%ad | sed -n '1p' 2> /dev/null`\"\n#define DRV_NAME \"$${BUILT_MODULE_NAME[0]}\"\n" > $@; \
 	else \
-		printf "#define DRV_VERSION \"$(REL_VERSION)\"\n#define DRV_RELDATE \"$(REL_DATE)\"\n" > $@; \
+		printf "#define DRV_VERSION \"$${PACKAGE_VERSION}\"\n#define DRV_RELDATE \"$$PACKAGE_RELDATE\"\n#define DRV_NAME \"$${BUILT_MODULE_NAME[0]}\"\n" > $@; \
 	fi
 
 uninstall:
-	rm -f $(INSTALL_DIR)/$(TARGET)*
+	rm -vf $(INSTALL_DIR)/$(TARGET)* /etc/udev/rules.d/99-pt3.rules
 
-install: $(TARGET) uninstall
-	install -d $(INSTALL_DIR)
-	install -m 644 $(TARGET) $(INSTALL_DIR)
+dkms: $(TARGET)
 	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
 		install -m 644 etc/99-pt3.rules /etc/udev/rules.d ; \
 	fi
+
+install: uninstall dkms
+	install -d $(INSTALL_DIR)
+	install -m 644 $(TARGET) $(INSTALL_DIR)
 	depmod -a
 
 install_compress: install

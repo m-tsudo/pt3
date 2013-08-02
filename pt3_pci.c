@@ -1,5 +1,5 @@
 /*******************************************************************************
-   earthsoft PT3 Linux driver
+   Earthsoft PT3 Linux driver
 
    This program is free software; you can redistribute it and/or modify it
    under the terms and conditions of the GNU General Public License,
@@ -15,7 +15,6 @@
 
  *******************************************************************************/
 
-#define DRV_NAME "PT3-pci"
 #include "version.h"
 
 #include <linux/module.h>
@@ -28,40 +27,39 @@
 #include <linux/mutex.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
-#include <asm/system.h>
+ #include <asm/system.h>
 #endif
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
-typedef struct pm_message {
+ typedef struct pm_message {
         int event;
-} pm_message_t;
+ } pm_message_t;
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
-#include <linux/freezer.h>
+ #include <linux/freezer.h>
 #else
-#define set_freezable()
+ #define set_freezable()
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
-#include <linux/sched.h>
+ #include <linux/sched.h>
 #endif
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
-#include <linux/smp_lock.h>
+ #include <linux/smp_lock.h>
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
-#define __devinitdata
-#define __devinit
-#define __devexit
-#define __devexit_p
+ #define __devinitdata
+ #define __devinit
+ #define __devexit
+ #define __devexit_p
 #endif
+
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
-
 #include <linux/fs.h>
 #include <linux/cdev.h>
-
 #include <linux/ioctl.h>
 
 #include	"pt3_com.h"
@@ -85,19 +83,15 @@ pt3_vzalloc(unsigned long size)
 }
 #endif
 
-char pt3_driver_name[] = DRV_NAME;
-
-/* These identify the driver base version and may not be removed. */
-static char version[] __devinitdata =
-DRV_NAME ".c: " DRV_VERSION " " DRV_RELDATE " \n";
+// These identify the driver base version and may not be removed.
+static char version[] __devinitdata = DRV_NAME " " DRV_VERSION " " DRV_RELDATE "\n";
 
 MODULE_AUTHOR("anyone");
-#define	DRIVER_DESC		"PCI earthsoft PT3 driver"
-MODULE_DESCRIPTION(DRIVER_DESC);
+MODULE_DESCRIPTION("PCI Earthsoft PT3 driver");
 MODULE_LICENSE("GPL");
 
-int debug = 0;				/* 1 normal messages, 0 quiet .. 7 verbose. */
-static int lnb = 0;			/* LNB OFF:0 +11V:1 +15V:2 */
+int debug = 0;		// 1 normal messages, 0 quiet .. 7 verbose
+static int lnb = 0;	// LNB OFF:0 +11V:1 +15V:2
 
 module_param(debug, int, S_IRUGO | S_IWUSR);
 module_param(lnb, int, 0);
@@ -105,19 +99,20 @@ MODULE_PARM_DESC(debug, "debug level (0-7)");
 MODULE_PARM_DESC(lnb, "LNB level (0:OFF 1:+11V 2:+15V)");
 
 #define VENDOR_ALTERA 0x1172
-#define PCI_PT3_ID 0x4c15
+#define PCI_PT3_ID    0x4c15
 
 static struct pci_device_id pt3_pci_tbl[] = {
 	{ VENDOR_ALTERA, PCI_PT3_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
 	{ 0, }
 };
 MODULE_DEVICE_TABLE(pci, pt3_pci_tbl);
-#define		DEV_NAME	"pt3video"
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
 static	DEFINE_MUTEX(pt3_biglock);
 #endif
 
-#define		MAX_PCI_DEVICE		128		// 最大64枚
+#define DRV_CLASS	"ptx"
+#define DEV_NAME	"pt3"
+#define MAX_PCI_DEVICE 128		// 最大64枚
 
 typedef struct _PT3_VERSION {
 	__u8		ptn;
@@ -140,59 +135,54 @@ typedef struct _PT3_TUNER {
 
 typedef struct _PT3_CHANNEL PT3_CHANNEL;
 
-typedef	struct	_pt3_device{
+typedef struct	_pt3_device{
 	int bars;
 	__u8 __iomem* hw_addr[2];
-	struct mutex		lock ;
-	dev_t			dev ;
-	int			card_number;
-	__u32			base_minor ;
+	struct mutex	lock ;
+	dev_t		dev ;
+	int		card_number;
+	__u32		base_minor ;
 	struct	cdev	cdev[MAX_CHANNEL];
-	PT3_VERSION		version;
-	PT3_SYSTEM		system;
-	PT3_I2C			*i2c;
-	PT3_TUNER       tuner[MAX_TUNER];
-	PT3_CHANNEL		*channel[MAX_CHANNEL];
+	PT3_VERSION	version;
+	PT3_SYSTEM	system;
+	PT3_I2C	*i2c;
+	PT3_TUNER	tuner[MAX_TUNER];
+	PT3_CHANNEL	*channel[MAX_CHANNEL];
 } PT3_DEVICE;
 
 struct _PT3_CHANNEL {
-	__u32			valid ;
-	__u32			minor;
-	PT3_TUNER		*tuner;
-	int				type ;
+	__u32		valid ;
+	__u32		minor;
+	PT3_TUNER	*tuner;
+	int		type ;
 	struct mutex	lock ;
-	PT3_DEVICE		*ptr ;
-	PT3_I2C			*i2c;
-	PT3_DMA			*dma;
+	PT3_DEVICE	*ptr ;
+	PT3_I2C	*i2c;
+	PT3_DMA	*dma;
 };
 
 static int real_channel[MAX_CHANNEL] = {0, 1, 2, 3};
-static int channel_type[MAX_CHANNEL] = {PT3_ISDB_S, PT3_ISDB_S,
-										PT3_ISDB_T, PT3_ISDB_T};
+static int channel_type[MAX_CHANNEL] = {PT3_ISDB_S, PT3_ISDB_S, PT3_ISDB_T, PT3_ISDB_T};
 
 static	PT3_DEVICE	*device[MAX_PCI_DEVICE];
 static struct class	*pt3video_class;
 
-#define		DRIVERNAME	"pt3video"
-
 static int
 check_fpga_version(PT3_DEVICE *dev_conf)
 {
-	__u32	val;
-	
-	val = readl(dev_conf->hw_addr[0] + REGS_VERSION);
+	__u32 val = readl(dev_conf->hw_addr[0] + REGS_VERSION);
 
-	dev_conf->version.ptn = ((val >> 24) & 0xFF);
+	dev_conf->version.ptn  = ((val >> 24) & 0xFF);
 	dev_conf->version.regs = ((val >> 16) & 0xFF);
-	dev_conf->version.fpga = ((val >> 8) & 0xFF);
+	dev_conf->version.fpga = ((val >>  8) & 0xFF);
 	if (dev_conf->version.ptn != 3) {
-		PT3_PRINTK(0, KERN_ERR, "PTn needs 3.\n");
+		PT3_PRINTK(0, KERN_ERR, "Not a PT3\n");
 		return -1;
 	}
-	PT3_PRINTK(7, KERN_INFO, "Check PTn is passed. n=%d\n", dev_conf->version.ptn);
+	PT3_PRINTK(7, KERN_INFO, "PT%d found\n", dev_conf->version.ptn);
 
 	if (dev_conf->version.fpga != 0x04) {
-		PT3_PRINTK(0, KERN_ERR, "this FPGA version is not supported. version=0x%x\n",
+		PT3_PRINTK(0, KERN_ERR, "FPGA version 0x%x is not supported\n",
 				dev_conf->version.fpga);
 		return -1;
 	}
@@ -226,11 +216,7 @@ get_tuner_status(int isdb, PT3_TUNER *tuner)
 static STATUS
 set_id_s(PT3_TUNER *tuner, __u32 id)
 {
-	STATUS status;
-
-	status = pt3_tc_write_id_s(tuner->tc_s, NULL, (__u16)id);
-
-	return status;
+	return pt3_tc_write_id_s(tuner->tc_s, NULL, (__u16)id);
 }
 
 static STATUS
@@ -569,10 +555,9 @@ SetChannel(PT3_CHANNEL *channel, FREQUENCY *freq)
 {
 	TMCC_S tmcc_s;
 	TMCC_T tmcc_t;
-	STATUS status;
 	__u32 i, tsid;
 
-	status = set_frequency(channel->type, channel->tuner, freq->frequencyno, freq->slot);
+	STATUS status = set_frequency(channel->type, channel->tuner, freq->frequencyno, freq->slot);
 	if (status)
 		return status;
 
@@ -645,7 +630,7 @@ pt3_open(struct inode *inode, struct file *file)
 
 	for (lp = 0; lp < MAX_PCI_DEVICE; lp++) {
 		if (device[lp] == NULL) {
-			PT3_PRINTK(1, KERN_DEBUG, "device is not exists\n");
+			PT3_PRINTK(1, KERN_DEBUG, "device does not exist\n");
 			return -EIO;
 		}
 
@@ -833,7 +818,7 @@ pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
 	if(mutex_lock_interruptible(&pt3_biglock))
 		return -EINTR ;
-#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
+#else
 	lock_kernel();
 #endif
 
@@ -841,7 +826,7 @@ pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
 	mutex_unlock(&pt3_biglock);
-#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,38)
+#else
 	unlock_kernel();
 #endif
 
@@ -851,57 +836,50 @@ pt3_unlocked_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 static long
 pt3_compat_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 {
-	long ret;
 	/* should do 32bit <-> 64bit conversion here? --yaz */
-	ret = pt3_unlocked_ioctl(file, cmd, arg0);
-
-	return ret;
+	return (long)pt3_unlocked_ioctl(file, cmd, arg0);
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 static int
 pt3_ioctl(struct inode *inode, struct file  *file, unsigned int cmd, unsigned long arg0)
 {
-	int ret;
-	ret = (int)pt3_do_ioctl(file, cmd, arg0);
-	return ret;
+	return (int)pt3_do_ioctl(file, cmd, arg0);
 }
 #endif
 
-/*
-*/
 static const struct file_operations pt3_fops = {
 	.owner		=	THIS_MODULE,
 	.open		=	pt3_open,
 	.release	=	pt3_release,
 	.read		=	pt3_read,
+	.llseek	=	no_llseek,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 	.ioctl		=	pt3_ioctl,
 #else
-	.unlocked_ioctl		=	pt3_unlocked_ioctl,
+	.unlocked_ioctl	=	pt3_unlocked_ioctl,
 	.compat_ioctl		=	pt3_compat_ioctl,
 #endif
-	.llseek		=	no_llseek,
 };
 
 static int __devinit
 pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 {
-	int			rc ;
-	int			lp ;
-	int			minor ;
-	int			bars;
-	u32			class_revision ;
+	int		rc ;
+	int		lp ;
+	int		minor ;
+	int		bars;
+	u32		class_revision ;
 	PT3_DEVICE	*dev_conf ;
-	PT3_TUNER *tuner;
-	PT3_CHANNEL *channel;
+	PT3_TUNER	*tuner;
+	PT3_CHANNEL	*channel;
 
 	bars = pci_select_bars(pdev, IORESOURCE_MEM);
 	rc = pci_enable_device(pdev);
 	if (rc)
 		return rc;
 
-	rc =pci_request_selected_regions(pdev, bars, pt3_driver_name);
+	rc =pci_request_selected_regions(pdev, bars, DRV_NAME);
 	if (rc)
 		goto out_err_pci;
 
@@ -917,11 +895,11 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 				(class_revision & 0xFF));
 		goto out_err_reg;
 	}
-	PT3_PRINTK(7, KERN_DEBUG, "Revision check passed. revision=0x%x\n", class_revision & 0xff);
+	PT3_PRINTK(7, KERN_DEBUG, "Revision 0x%x passed\n", class_revision & 0xff);
 
 	dev_conf = kzalloc(sizeof(PT3_DEVICE), GFP_KERNEL);
 	if(!dev_conf){
-		PT3_PRINTK(0, KERN_ERR, "out of memory !\n");
+		PT3_PRINTK(0, KERN_ERR, "out of memory!\n");
 		goto out_err_reg;
 	}
 	PT3_PRINTK(7, KERN_DEBUG, "Allocate PT3_DEVICE.\n");
@@ -1008,7 +986,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 
 		channel = kzalloc(sizeof(PT3_CHANNEL), GFP_KERNEL);
 		if (channel == NULL) {
-			PT3_PRINTK(0, KERN_ERR, "out of memory !\n");
+			PT3_PRINTK(0, KERN_ERR, "out of memory!\n");
 			goto out_err_dma;
 		}
 
@@ -1022,28 +1000,24 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		mutex_init(&channel->lock);
 		channel->minor = MINOR(dev_conf->dev) + lp;
 		channel->tuner = &dev_conf->tuner[real_channel[lp] & 1];
-		channel->type = channel_type[lp];
-		channel->ptr = dev_conf;
-		channel->i2c = dev_conf->i2c;
+		channel->type  = channel_type[lp];
+		channel->ptr   = dev_conf;
+		channel->i2c   = dev_conf->i2c;
 
 		dev_conf->channel[lp] = channel;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-		PT3_PRINTK(0, KERN_INFO, "card_number = %d channel=%d\n",
+		PT3_PRINTK(0, KERN_INFO, "card_number=%d channel=%d\n",
 					dev_conf->card_number, real_channel[lp]);
 		device_create(pt3video_class,
-					NULL,
-					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
-					NULL,
-					"pt3video%u",
-					MINOR(dev_conf->dev) + lp + dev_conf->card_number * MAX_CHANNEL);
-#else
-		device_create(pt3video_class,
-					NULL,
-					MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
-					"pt3video%u",
-					MINOR(dev_conf->dev) + lp + dev_conf->card_number * MAX_CHANNEL);
+				NULL,
+				MKDEV(MAJOR(dev_conf->dev), (MINOR(dev_conf->dev) + lp)),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+				NULL,
 #endif
+				"%s%c%u",
+				DEV_NAME,
+				(channel->type == PT3_ISDB_S) ? 's': 't',
+				MINOR(dev_conf->dev) + (lp&1) + (dev_conf->card_number*MAX_CHANNEL>>1));
 	}
 
 	pci_set_drvdata(pdev, dev_conf);
@@ -1084,9 +1058,9 @@ out_err_pci:
 static void __devexit
 pt3_pci_remove_one(struct pci_dev *pdev)
 {
-	__u32 lp;
-	PT3_TUNER *tuner;
-	PT3_CHANNEL *channel;
+	__u32		lp;
+	PT3_TUNER	*tuner;
+	PT3_CHANNEL	*channel;
 	PT3_DEVICE	*dev_conf = (PT3_DEVICE *)pci_get_drvdata(pdev);
 
 	if(dev_conf){
@@ -1140,7 +1114,6 @@ pt3_pci_remove_one(struct pci_dev *pdev)
 }
 
 #ifdef CONFIG_PM
-
 static int
 pt3_pci_suspend (struct pci_dev *pdev, pm_message_t state)
 {
@@ -1152,33 +1125,28 @@ pt3_pci_resume (struct pci_dev *pdev)
 {
 	return 0;
 }
-
 #endif /* CONFIG_PM */
 
-
 static struct pci_driver pt3_driver = {
-	.name		= pt3_driver_name,
+	.name		= DRV_NAME,
 	.probe		= pt3_pci_init_one,
-	.remove		= __devexit_p(pt3_pci_remove_one),
+	.remove	= __devexit_p(pt3_pci_remove_one),
 	.id_table	= pt3_pci_tbl,
 #ifdef CONFIG_PM
 	.suspend	= pt3_pci_suspend,
-	.resume		= pt3_pci_resume,
+	.resume	= pt3_pci_resume,
 #endif /* CONFIG_PM */
-
 };
-
 
 static int __init
 pt3_pci_init(void)
 {
 	PT3_PRINTK(0, KERN_INFO, "%s", version);
-	pt3video_class = class_create(THIS_MODULE, DRIVERNAME);
+	pt3video_class = class_create(THIS_MODULE, DRV_CLASS);
 	if (IS_ERR(pt3video_class))
 		return PTR_ERR(pt3video_class);
 	return pci_register_driver(&pt3_driver);
 }
-
 
 static void __exit
 pt3_pci_cleanup(void)
