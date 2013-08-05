@@ -111,7 +111,7 @@ static	DEFINE_MUTEX(pt3_biglock);
 #endif
 
 #define DRV_CLASS	"ptx"
-#define DEV_NAME	"pt3"
+#define DEV_NAME	"pt3video"
 #define MAX_PCI_DEVICE 128		// 最大64枚
 
 typedef struct _PT3_VERSION {
@@ -1014,10 +1014,8 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 				NULL,
 #endif
-				"%s%c%u",
-				DEV_NAME,
-				(channel->type == PT3_ISDB_S) ? 's': 't',
-				MINOR(dev_conf->dev) + (lp&1) + (dev_conf->card_number*MAX_CHANNEL>>1));
+				DEV_NAME "%u",
+				MINOR(dev_conf->dev) + lp + (dev_conf->card_number * MAX_CHANNEL));
 	}
 
 	pci_set_drvdata(pdev, dev_conf);
