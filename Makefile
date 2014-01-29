@@ -40,7 +40,7 @@ dkms: $(TARGET)
 install: uninstall dkms
 	install -d $(INSTALL_DIR)
 	install -m 644 $(TARGET) $(INSTALL_DIR)
-	depmod -a
+	depmod -a $(KVER)
 
 install_compress: install
 	. $(KBUILD)/.config ; \
@@ -51,4 +51,4 @@ install_compress: install
 	elif [ $$CONFIG_DECOMPRESS_GZIP = "y" ] ; then \
 		gzip  -9 $(INSTALL_DIR)/$(TARGET); \
 	fi
-	depmod -a
+	depmod -a $(KVER)
