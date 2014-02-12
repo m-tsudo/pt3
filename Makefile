@@ -31,6 +31,7 @@ version.h:
 
 uninstall:
 	rm -vf $(INSTALL_DIR)/$(TARGET)* /etc/udev/rules.d/99-pt3.rules
+	bash ./dkms.uninstall
 
 dkms: $(TARGET)
 	if [ -d /etc/udev/rules.d -a ! -f /etc/udev/rules.d/99-pt3.rules ] ; then \
@@ -41,6 +42,7 @@ install: uninstall dkms
 	install -d $(INSTALL_DIR)
 	install -m 644 $(TARGET) $(INSTALL_DIR)
 	depmod -a $(KVER)
+	bash ./dkms.install
 
 install_compress: install
 	. $(KBUILD)/.config ; \
