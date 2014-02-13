@@ -16,3 +16,22 @@ debug メッセージの表示を制御します
       7: デバッグ用メッセージも表示します
       ※/sys/module/pt3_drv/parameters/debugからも変更できます
       例： echo 7 > /sys/module/pt3_drv/parameters/debug
+
+注意事項
+	システムの自動更新等でKernelのバージョンが変わった場合、そのままだとpt3ドライバ
+	を再度インストールする必要が生じます。
+	この手順を自動化する仕組みに「DKMS」があります。
+	この「DKMS」を簡単に利用できるように「dkms.install」ファイルも同梱しています。
+	DKMSを無効化したい場合は「dkms.uninstall」ファイルも同梱しています。
+
+DKMSを有効化
+	DKMSを有効化するには、
+	$ sudo make install
+	を実行した後で、システムのシェル環境でdkms.installを実行します。
+	例
+		$ sudo bash ./dkms.install
+
+DKMSを無効化
+	DKMSを無効化するには、システムのシェル環境でdkms.uninstallを実行します。
+	例
+		$ sudo bash ./dkms.uninstall
