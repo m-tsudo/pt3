@@ -29,9 +29,9 @@ DKMSを有効化
 	$ sudo make install
 	を実行した後で、システムのシェル環境でdkms.installを実行します。
 	例
-		$ sudo bash ./dkms.install
+		$ sudo ${SHELL} ./dkms.install
 
 DKMSを無効化
 	DKMSを無効化するには、システムのシェル環境でdkms.uninstallを実行します。
 	例
-		$ sudo bash ./dkms.uninstall
+		$ sudo ${SHELL} ./dkms.uninstall
