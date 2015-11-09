@@ -21,6 +21,9 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
 void * pt3_vzalloc(unsigned long size);
 #else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
+#include <linux/vmalloc.h>
+#endif
 #define pt3_vzalloc vzalloc
 #endif
 
