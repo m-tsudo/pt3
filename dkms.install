@@ -1,4 +1,4 @@
-. dkms.uninstall
+. ./dkms.uninstall
 
 su -c "
 cp -a `pwd` /usr/src/$PACKAGE_NAME-$PACKAGE_VERSION;

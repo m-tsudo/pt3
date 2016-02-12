@@ -1,4 +1,7 @@
-. dkms.conf
+if [ "$ZSH_NAME" = "zsh" ];then
+  setopt localoptions ksharrays
+fi
+. ./dkms.conf
 
 su -c "
 #dkms uninstall -m $PACKAGE_NAME -v $PACKAGE_VERSION;
