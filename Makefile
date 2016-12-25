@@ -41,6 +41,7 @@ install: uninstall dkms
 	install -d $(INSTALL_DIR)
 	install -m 644 $(TARGET) $(INSTALL_DIR)
 	depmod -a $(KVER)
+	bash ./dkms.install
 
 install_compress: install
 	. $(KBUILD)/.config ; \
