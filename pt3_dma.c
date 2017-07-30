@@ -26,13 +26,17 @@
 #include <linux/version.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/uaccess.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 #include <asm/system.h>
 #endif
 #include <asm/io.h>
 #include <asm/irq.h>
-#include <asm/uaccess.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,12,0)
+ #include <asm/uaccess.h>
+#endif
 
 #include "pt3_com.h"
 #include "pt3_pci.h"
