@@ -96,11 +96,14 @@ MODULE_LICENSE("GPL");
 
 int debug = 0;		// 1 normal messages, 0 quiet .. 7 verbose
 static int lnb = 0;	// LNB OFF:0 +11V:1 +15V:2
+static int lnb_force = 0; // Force enable LNB
 
 module_param(debug, int, S_IRUGO | S_IWUSR);
 module_param(lnb, int, 0);
-MODULE_PARM_DESC(debug, "debug level (0-7)");
+module_param(lnb_force, int, 0);
+MODULE_PARM_DESC(debug, "debug lvel (0-7)");
 MODULE_PARM_DESC(lnb, "LNB level (0:OFF 1:+11V 2:+15V)");
+MODULE_PARM_DESC(lnb_force, "Force enable LNB");
 
 #define VENDOR_ALTERA 0x1172
 #define PCI_PT3_ID    0x4c15
@@ -762,7 +765,7 @@ pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 		return 0;
 	case LNB_ENABLE:
 		count = count_used_bs_tuners(channel->ptr);
-		if (count <= 1) {
+		if (count <= 1 && !lnb_force) {
 			lnb_usr = (int)arg0;
 			lnb_eff = lnb_usr ? lnb_usr : lnb;
 			set_lnb(channel->ptr, lnb_eff);
@@ -771,7 +774,7 @@ pt3_do_ioctl(struct file  *file, unsigned int cmd, unsigned long arg0)
 		return 0;
 	case LNB_DISABLE:
 		count = count_used_bs_tuners(channel->ptr);
-		if (count <= 1) {
+		if (count <= 1 && !lnb_force) {
 			set_lnb(channel->ptr, 0);
 			PT3_PRINTK(1, KERN_INFO, "LNB off\n");
 		}
@@ -935,8 +938,7 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto out_err_fpga;
 	}
 	PT3_PRINTK(7, KERN_DEBUG, "Allocate PT3_I2C.\n");
-
-	set_lnb(dev_conf, 0);
+	set_lnb(dev_conf, lnb_force ? lnb : 0);
 	// Tuner
 	for (lp = 0; lp < MAX_TUNER; lp++) {
 		__u8 tc_addr, tuner_addr;
