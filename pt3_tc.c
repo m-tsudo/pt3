@@ -755,10 +755,18 @@ free_pt3_tc(PT3_TC *tc)
 }
 
 __u32
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 time_diff(struct timeval *st, struct timeval *et)
+#else
+time_diff(struct timespec64 *st, struct timespec64 *et)
+#endif
 {
 	__u32 diff;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 	diff = (et->tv_sec - st->tv_sec) * 1000000 + (et->tv_usec - st->tv_usec);
+#else
+	diff = (et->tv_sec - st->tv_sec) * 1000000 + ((et->tv_nsec / 1000) - (st->tv_nsec / 1000));
+#endif
 #if 0
 	PT3_PRINTK(7, KERN_DEBUG, "time diff = %d\n", diff / 1000);
 #endif
