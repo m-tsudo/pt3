@@ -387,7 +387,11 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 	int catv, locked1, locked2;
 	__u32 number, freq;
 	__u32 real_freq;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 	struct timeval begin, now;
+#else
+	struct timespec64 begin, now;
+#endif
 
 	status = pt3_tc_set_agc_t(mx->tc, NULL, PT3_TC_AGC_MANUAL);
 	if (status)
@@ -400,10 +404,18 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 
 	mx_set_frequency(mx, NULL, real_freq);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 	do_gettimeofday(&begin);
+#else
+	ktime_get_real_ts64(&begin);
+#endif
 	locked1 = locked2 = 0;
 	while (1) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
 		do_gettimeofday(&now);
+#else
+		ktime_get_real_ts64(&now);
+#endif
 		pt3_mx_get_locked1(mx, NULL, &locked1);
 		pt3_mx_get_locked2(mx, NULL, &locked2);
 
