@@ -29,7 +29,7 @@ typedef struct _PT3_TC {
 	PT3_I2C *i2c;
 	__u8 tc_addr;
 	__u8 tuner_addr;
-	double master_clock_freq;	// MHz
+	__u8 master_clock_freq;	// MHz
 } PT3_TC;
 
 typedef enum {
