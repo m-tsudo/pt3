@@ -496,11 +496,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	STATUS status;
 	int bs, locked;
 	__u32 number, freq, freq_khz;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-	struct timeval begin, now;
-#else
-	struct timespec64 begin, now;
-#endif
+    ktime_t begin, now;
 
 	status = pt3_tc_set_agc_s(qm->tc, NULL, PT3_TC_AGC_MANUAL);
 	if (status)
@@ -520,17 +516,9 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 	if (status)
 		return status;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-	do_gettimeofday(&begin);
-#else
-	ktime_get_real_ts64(&begin);
-#endif
+    begin = ktime_get();
 	while (1) {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-		do_gettimeofday(&now);
-#else
-		ktime_get_real_ts64(&now);
-#endif
+        now = ktime_get();
 
 		status = pt3_qm_get_locked(qm, NULL, &locked);
 		if (status)
@@ -538,7 +526,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 		if (locked)
 			break;
 
-		if (time_diff(&begin, &now) >= 100)
+		if (ktime_sub(now, begin) >= (100 * NSEC_PER_USEC))
 			break;
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	

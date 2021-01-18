@@ -64,10 +64,5 @@ STATUS pt3_tc_read_cn_s(PT3_TC *tc, PT3_BUS *bus, __u32 *cn);
 STATUS pt3_tc_read_cndat_t(PT3_TC *tc, PT3_BUS *bus, __u32 *cn);
 PT3_TC * create_pt3_tc(PT3_I2C *i2c, __u8 tc_addr, __u8 qm_addr);
 void free_pt3_tc(PT3_TC *tc);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
-__u32 time_diff(struct timeval *st, struct timeval *et);
-#else
-__u32 time_diff(struct timespec64 *st, struct timespec64 *et);
-#endif
 
 #endif

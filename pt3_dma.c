@@ -48,13 +48,13 @@
 #define DMA_PAGE_SIZE		4096
 #define MAX_DESCS			204		/* 4096 / 20 */
 #if 1
-#define BLOCK_COUNT			(17)
-#define BLOCK_SIZE			(DMA_PAGE_SIZE * 47)
+#define PAGE_BLOCK_COUNT	(17)
+#define PAGE_BLOCK_SIZE		(DMA_PAGE_SIZE * 47)
 #else
-#define BLOCK_COUNT			(32)
-#define BLOCK_SIZE			(DMA_PAGE_SIZE * 47 * 8)
+#define PAGE_BLOCK_COUNT	(32)
+#define PAGE_BLOCK_SIZE		(DMA_PAGE_SIZE * 47 * 8)
 #endif
-#define DMA_TS_BUF_SIZE		(BLOCK_SIZE * BLOCK_COUNT)
+#define DMA_TS_BUF_SIZE		(PAGE_BLOCK_SIZE * PAGE_BLOCK_COUNT)
 #define NOT_SYNC_BYTE		0x74
 
 static __u32
@@ -418,7 +418,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 	dma->real_index = real_index;
 	mutex_init(&dma->lock);
 	
-	dma->ts_count = BLOCK_COUNT;
+	dma->ts_count = PAGE_BLOCK_COUNT;
 	dma->ts_info = kzalloc(sizeof(PT3_DMA_PAGE) * dma->ts_count, GFP_KERNEL);
 	if (dma->ts_info == NULL) {
 		PT3_PRINTK(0, KERN_ERR, "fail allocate PT3_DMA_PAGE\n");
@@ -426,7 +426,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 	}
 	for (i = 0; i < dma->ts_count; i++) {
 		page = &dma->ts_info[i];
-		page->size = BLOCK_SIZE;
+		page->size = PAGE_BLOCK_SIZE;
 		page->data_pos = 0;
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
