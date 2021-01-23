@@ -429,11 +429,13 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page = &dma->ts_info[i];
 		page->size = PAGE_BLOCK_SIZE;
 		page->data_pos = 0;
+	    PT3_PRINTK(7, KERN_DEBUG, "try pci_alloc_consistent count=%d, size=0x%x, &dma_addr=%p)\n", i, page->size, &page->addr);
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			PT3_PRINTK(0, KERN_ERR, "fail allocate consistent. %d\n", i);
 			goto fail;
 		}
+	    // PT3_PRINTK(7, KERN_DEBUG, "cpu_addr=%p, dma_addr=0x%llx\n", page->data, page->addr);
 	}
 	PT3_PRINTK(7, KERN_DEBUG, "Allocate TS buffer.\n");
 
