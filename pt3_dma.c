@@ -58,6 +58,21 @@
 #define DMA_TS_BUF_SIZE		(PAGE_BLOCK_SIZE * PAGE_BLOCK_COUNT)
 #define NOT_SYNC_BYTE		0x74
 
+#if defined(__aarc64__)
+static inline void *
+pt3_pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *dma_handle) {
+    return dma_alloc_coherent(hwdev == NULL ? NULL : &hwdev->dev,
+                              size,
+                              dma_handle,
+                              GFP_KERNEL);
+}
+#else
+static inline void *
+pt3_pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *dma_handle) {
+    return pci_alloc_consistent(hwdev, size, dma_handle);
+}
+#endif
+
 static __u32
 gray2binary(__u32 gray, __u32 bit)
 {
@@ -430,7 +445,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page->size = PAGE_BLOCK_SIZE;
 		page->data_pos = 0;
 	    PT3_PRINTK(7, KERN_DEBUG, "try pci_alloc_consistent count=%d, size=0x%x, &dma_addr=%p)\n", i, page->size, &page->addr);
-		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
+		page->data = pt3_pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			PT3_PRINTK(0, KERN_ERR, "fail allocate consistent. %d\n", i);
 			goto fail;
@@ -449,7 +464,7 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page = &dma->desc_info[i];
 		page->size = DMA_PAGE_SIZE;
 		page->data_pos = 0;
-		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
+		page->data = pt3_pci_alloc_consistent(hwdev, page->size, &page->addr);
 		if (page->data == NULL) {
 			PT3_PRINTK(0, KERN_ERR, "fail allocate consistent. %d\n", i);
 			goto fail;
