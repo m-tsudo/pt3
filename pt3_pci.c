@@ -921,15 +921,9 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto out_err_fpga;
 
 	rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
-	if (rc) {
-		PT3_PRINTK(0, KERN_WARNING, "Couldn't set 64-bit PCI DMA mask.\n");
-		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-		if (!rc) {
-			rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
-		}
-	}
-	rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
-	if (rc) {
+	if (!rc) {
+		rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
+	} else {
 		PT3_PRINTK(0, KERN_ERR, "DMA MASK ERROR\n");
 		goto out_err_fpga;
 	}
