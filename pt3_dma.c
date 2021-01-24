@@ -58,7 +58,7 @@
 #define DMA_TS_BUF_SIZE		(PAGE_BLOCK_SIZE * PAGE_BLOCK_COUNT)
 #define NOT_SYNC_BYTE		0x74
 
-#if defined(__aarc64__)
+#if defined(__aarch64__)
 static inline void *
 pt3_pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *dma_handle) {
     return dma_alloc_coherent(hwdev == NULL ? NULL : &hwdev->dev,
