@@ -58,9 +58,10 @@
 #define DMA_TS_BUF_SIZE		(PAGE_BLOCK_SIZE * PAGE_BLOCK_COUNT)
 #define NOT_SYNC_BYTE		0x74
 
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(__arm__)
 static inline void *
 pt3_pci_alloc_consistent(struct pci_dev *hwdev, size_t size, dma_addr_t *dma_handle) {
+    PT3_PRINTK(7, KERN_DEBUG, "use GFP_KERNEL instead of GFP_ATOMIC\n");
     return dma_alloc_coherent(hwdev == NULL ? NULL : &hwdev->dev,
                               size,
                               dma_handle,
