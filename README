@@ -41,3 +41,7 @@ DKMSを無効化
 	DKMSを無効化するには、システムのシェル環境でdkms.uninstallを実行します。
 	例
 		$ sudo ${SHELL} ./dkms.uninstall
+
+トラブルシュート
+    RaspberryPi等で"fail create dma."のエラーでドライバがロードできない場合、
+    ブートパラメータでcoherent_poolを32MB程度に変更してください。
