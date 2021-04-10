@@ -409,7 +409,7 @@ pt3_mx_set_frequency(PT3_MX *mx, __u32 channel, __s32 offset)
 
 		if (locked1 && locked2)
 			break;
-		if (ktime_sub(now, begin) > (1000 * NSEC_PER_USEC))
+		if (ktime_sub(now, begin) > ktime_set(0, 1000 * NSEC_PER_USEC))
 			break;
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	

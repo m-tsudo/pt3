@@ -526,7 +526,7 @@ pt3_qm_set_frequency(PT3_QM *qm, __u32 channel, __s32 offset)
 		if (locked)
 			break;
 
-		if (ktime_sub(now, begin) >= (100 * NSEC_PER_USEC))
+		if (ktime_sub(now, begin) >= ktime_set(0, 100 * NSEC_PER_USEC))
 			break;
 
 		schedule_timeout_interruptible(msecs_to_jiffies(1));	
