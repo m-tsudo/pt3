@@ -428,7 +428,11 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page = &dma->ts_info[i];
 		page->size = PAGE_BLOCK_SIZE;
 		page->data_pos = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+		page->data = dma_alloc_coherent(&hwdev->dev, page->size, &page->addr, GFP_KERNEL);
+#else
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
+#endif
 		if (page->data == NULL) {
 			PT3_PRINTK(0, KERN_ERR, "fail allocate consistent. %d\n", i);
 			goto fail;
@@ -446,7 +450,11 @@ create_pt3_dma(struct pci_dev *hwdev, PT3_I2C *i2c, int real_index)
 		page = &dma->desc_info[i];
 		page->size = DMA_PAGE_SIZE;
 		page->data_pos = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+		page->data = dma_alloc_coherent(&hwdev->dev, page->size, &page->addr, GFP_KERNEL);
+#else
 		page->data = pci_alloc_consistent(hwdev, page->size, &page->addr);
+#endif
 		if (page->data == NULL) {
 			PT3_PRINTK(0, KERN_ERR, "fail allocate consistent. %d\n", i);
 			goto fail;
@@ -475,7 +483,11 @@ free_pt3_dma(struct pci_dev *hwdev, PT3_DMA *dma)
 		for (i = 0; i < dma->ts_count; i++) {
 			page = &dma->ts_info[i];
 			if (page->size != 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+				dma_free_coherent(&hwdev->dev, page->size, page->data, page->addr);
+#else
 				pci_free_consistent(hwdev, page->size, page->data, page->addr);
+#endif
 		}
 		kfree(dma->ts_info);
 	}
@@ -483,7 +495,11 @@ free_pt3_dma(struct pci_dev *hwdev, PT3_DMA *dma)
 		for (i = 0; i < dma->desc_count; i++) {
 			page = &dma->desc_info[i];
 			if (page->size != 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+				dma_free_coherent(&hwdev->dev, page->size, page->data, page->addr);
+#else
 				pci_free_consistent(hwdev, page->size, page->data, page->addr);
+#endif
 		}
 		kfree(dma->desc_info);
 	}
