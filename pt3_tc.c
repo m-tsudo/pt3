@@ -105,24 +105,22 @@ pt3_tc_write(PT3_TC *tc, PT3_BUS *bus, __u8 addr, const __u8 *data, __u32 size)
 }
 
 static STATUS
-tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, const __u32 size)
+tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 {
 	STATUS status;
-	__u8 *buf;
+	__u8 buf[64];
 	__u32 i, rindex;
 	PT3_BUS *p;
 
-	buf = pt3_vzalloc(size);
-	if (buf == NULL) {
-		PT3_PRINTK(0, KERN_ERR, "out of memory.\n");
-		status = STATUS_OUT_OF_MEMORY_ERROR;
-		goto end;
-	}
+    if (sizeof(buf) < size) {
+		PT3_PRINTK(0, KERN_ERR, "need 'size' less than %lu .\n", sizeof(buf));
+		return STATUS_INTERNAL_ERROR;
+    }
+
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
 		PT3_PRINTK(0, KERN_ERR, "out of memory.\n");
-		status = STATUS_OUT_OF_MEMORY_ERROR;
-		goto end;
+		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
 	pt3_bus_start(p);
@@ -145,9 +143,6 @@ tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, const __u32 size)
 			data[i] = pt3_bus_data1(p, rindex + i);
 	}
 
-end:
-	if (buf != NULL)
-		vfree(buf);
 	if (!bus)
 		free_pt3_bus(p);
 
@@ -155,26 +150,24 @@ end:
 }
 
 STATUS
-pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, const __u32 size)
+pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 {
 	STATUS status;
-	__u8 *buf;
+	__u8 buf[64];
 	__u32 i;
 	__u32 rindex;
 	PT3_BUS *p;
 
-	buf = pt3_vzalloc(size);
-	if (buf == NULL) {
-		PT3_PRINTK(0, KERN_ERR, "out of memory.\n");
-		status = STATUS_OUT_OF_MEMORY_ERROR;
-		goto end;
-	}
+    if (sizeof(buf) < size) {
+		PT3_PRINTK(0, KERN_ERR, "need 'size' less than %lu .\n", sizeof(buf));
+		return STATUS_INTERNAL_ERROR;
+    }
+	memset(buf, 0, sizeof(buf));
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
 		PT3_PRINTK(0, KERN_ERR, "out of memory.\n");
-		status = STATUS_OUT_OF_MEMORY_ERROR;
-		goto end;
+		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
 	pt3_bus_start(p);
@@ -200,16 +193,13 @@ pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, const __u32
 			data[i] = pt3_bus_data1(p, rindex + i);
 	}
 
+	if (!bus)
+		free_pt3_bus(p);
+
 #if 0
 	PT3_PRINTK(7, KERN_DEBUG, "read_tuner_without tc_addr=0x%x tuner_addr=0x%x\n",
 			tc->tc_addr, tc->tuner_addr);
 #endif
-
-end:
-	if (buf != NULL)
-		vfree(buf);
-	if (!bus)
-		free_pt3_bus(p);
 
 	return status;
 }
@@ -251,26 +241,24 @@ pt3_tc_write_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, const __u8 *data, __u3
 }
 
 STATUS
-pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, const __u32 size)
+pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 {
 	STATUS status;
-	__u8 *buf;
+	__u8 buf[64];
 	__u32 i;
 	size_t rindex;
 	PT3_BUS *p;
 
-	buf = pt3_vzalloc(size);
-	if (buf == NULL) {
-		PT3_PRINTK(0, KERN_ERR, "out of memory.\n");
-		status = STATUS_OUT_OF_MEMORY_ERROR;
-		goto end;
-	}
+    if (sizeof(buf) < size) {
+		PT3_PRINTK(0, KERN_ERR, "need 'size' less than %lu .\n", sizeof(buf));
+		return STATUS_INTERNAL_ERROR;
+    }
+	memset(buf, 0, sizeof(buf));
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
 		PT3_PRINTK(0, KERN_ERR, "out of memory.\n");
-		status = STATUS_OUT_OF_MEMORY_ERROR;
-		goto end;
+		return STATUS_OUT_OF_MEMORY_ERROR;
 	}
 
 	pt3_bus_start(p);
@@ -305,16 +293,13 @@ pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, const __u32 s
 			data[i] = pt3_bus_data1(p, rindex + i);
 	}
 
+	if (!bus)
+		free_pt3_bus(p);
+
 #if 0
 	PT3_PRINTK(7, KERN_DEBUG, "read_tuner tc_addr=0x%x tuner_addr=0x%x\n",
 			tc->tc_addr, tc->tuner_addr);
 #endif
-
-end:
-	if (buf != NULL)
-		vfree(buf);
-	if (!bus)
-		free_pt3_bus(p);
 
 	return status;
 }
