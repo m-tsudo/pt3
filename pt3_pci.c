@@ -1153,7 +1153,11 @@ static int __init
 pt3_pci_init(void)
 {
 	PT3_PRINTK(0, KERN_INFO, "%s", version);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,4,0)
 	pt3video_class = class_create(THIS_MODULE, DRV_CLASS);
+#else
+	pt3video_class = class_create(DRV_CLASS);
+#endif
 	if (IS_ERR(pt3video_class))
 		return PTR_ERR(pt3video_class);
 	return pci_register_driver(&pt3_driver);

@@ -108,9 +108,14 @@ static STATUS
 tc_read(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 {
 	STATUS status;
-	__u8 buf[size];
+	__u8 buf[64];
 	__u32 i, rindex;
 	PT3_BUS *p;
+
+    if (sizeof(buf) < size) {
+		PT3_PRINTK(0, KERN_ERR, "need 'size' less than %lu .\n", sizeof(buf));
+		return STATUS_INTERNAL_ERROR;
+    }
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
@@ -148,12 +153,16 @@ STATUS
 pt3_tc_read_tuner_without_addr(PT3_TC *tc, PT3_BUS *bus, __u8 *data, __u32 size)
 {
 	STATUS status;
-	__u8 buf[size];
+	__u8 buf[64];
 	__u32 i;
 	__u32 rindex;
 	PT3_BUS *p;
 
-	memset(buf, 0, size);
+    if (sizeof(buf) < size) {
+		PT3_PRINTK(0, KERN_ERR, "need 'size' less than %lu .\n", sizeof(buf));
+		return STATUS_INTERNAL_ERROR;
+    }
+	memset(buf, 0, sizeof(buf));
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
@@ -235,12 +244,16 @@ STATUS
 pt3_tc_read_tuner(PT3_TC *tc, PT3_BUS *bus, __u8 addr, __u8 *data, __u32 size)
 {
 	STATUS status;
-	__u8 buf[size];
+	__u8 buf[64];
 	__u32 i;
 	size_t rindex;
 	PT3_BUS *p;
 
-	memset(buf, 0, size);
+    if (sizeof(buf) < size) {
+		PT3_PRINTK(0, KERN_ERR, "need 'size' less than %lu .\n", sizeof(buf));
+		return STATUS_INTERNAL_ERROR;
+    }
+	memset(buf, 0, sizeof(buf));
 
 	p = bus ? bus : create_pt3_bus();
 	if (p == NULL) {
