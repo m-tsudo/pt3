@@ -926,11 +926,12 @@ pt3_pci_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
 #endif
 	if (!rc) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
-		rc = dma_set_coherent_mask((struct device *)pdev, DMA_BIT_MASK(64));
+		rc = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
 #else
 		rc = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
 #endif
-	} else {
+	}
+	if (rc) {
 		PT3_PRINTK(0, KERN_ERR, "DMA MASK ERROR\n");
 		goto out_err_fpga;
 	}
