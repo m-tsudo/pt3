@@ -860,7 +860,11 @@ static const struct file_operations pt3_fops = {
 	.open		=	pt3_open,
 	.release	=	pt3_release,
 	.read		=	pt3_read,
-	.llseek	=	no_llseek,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,0)
+	.llseek	= no_llseek,
+#else
+	.llseek = NULL,
+#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36)
 	.ioctl		=	pt3_ioctl,
 #else
